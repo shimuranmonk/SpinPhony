@@ -91,7 +91,8 @@ function App() {
           <p className="hint">8 seconds to 6 minutes, up to 32 MiB. Audio stays in your browser.</p>
           <div role="status">
             {busy && <p>Analyzing audio…</p>}
-            {track && <p>{track.filename} · {timestamp(track.durationMs)}{!track.rhythm && " · Enter the BPM manually"}</p>}
+            {track && <p>{track.filename} · {timestamp(track.durationMs)}
+              {track.rhythm ? " · Timing estimated. Adjust if needed." : " · No steady beat detected. Enter the BPM manually."}</p>}
           </div>
           <div className="fields">
             <label>Tempo (BPM)<input required type="number" min="40" max="180" step="0.1" value={bpm} disabled={!track} onChange={event => { setBpm(event.target.value); setResult(undefined); }} /></label>

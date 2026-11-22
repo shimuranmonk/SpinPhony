@@ -27,6 +27,21 @@ test("silence and uneven transients need manual tempo", () => {
   assert.equal(estimateRhythm([channel], rate), null);
 });
 
+test("repeated rhythmic accents survive extra offbeat transients", () => {
+  const rate = 12000;
+  const channel = new Float32Array(12 * rate);
+  for (let beat = 0; beat < 21; beat++) {
+    const sample = 3000 + beat * 6000;
+    channel.fill(0.6, sample, sample + 120);
+    const pickup = sample + [2400, 3360, 2760][beat % 3];
+    channel.fill(0.5, pickup, pickup + 120);
+  }
+  const result = estimateRhythm([channel], rate);
+  assert.ok(result);
+  assert.ok(Math.abs(result.bpm - 120) <= 1);
+  assert.ok(Math.abs(result.firstBeatMs - 250) <= 20);
+});
+
 test("timeline alternates drills, aligns recovery to beats, and stops at audio end", () => {
   const result = generate(track, rhythm, [...drills], profile);
   assert.deepEqual(result.cues.map(cue => [cue.timeMs, cue.command]), [

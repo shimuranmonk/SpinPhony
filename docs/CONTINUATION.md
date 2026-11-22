@@ -5,3 +5,5 @@
 - **Next action** · Review the stack in order and verify each retargeted diff. After the application reaches `main`, configure Pages to use GitHub Actions, dispatch **Publish SpinPhony** from `main`, and verify the hosted audio-to-export path.
 
 Read the [handover](HANDOVER.md), [decisions](DECISIONS.md), [architecture](ARCHITECTURE.md) and [testing](TESTING.md).
+
+The `fix/music-tempo` follow-up adds a repeated-pattern detector for tracks with uneven onset spacing. The updated local preview estimated timing and generated a timeline for a rock MP3 that previously required manual entry.

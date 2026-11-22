@@ -13,3 +13,5 @@ The 2026-11-23 follow-up adds editing for generated work and recovery times and 
 1. Inspect current branch heads and PR state. Merge decisions belong to the maintainer. After each parent lands, confirm the next PR targets the intended base and its diff contains only its own changes.
 2. Once the application reaches `main`, set the Pages publishing source to GitHub Actions and run **Publish SpinPhony** from `main`. Verify the hosted revision with a real audio file and an MSYNC download.
 3. Expand the recorded-music checks across genres, browsers and codecs. Record tempo and beat offset against labeled references and record tracks that require manual timing.
+
+The beat-detection follow-up adds correlation of repeated onset patterns and distinguishes estimated timing from manual fallback in the UI. Review the follow-up against the timeline branch, then expand music testing using beat annotations.
