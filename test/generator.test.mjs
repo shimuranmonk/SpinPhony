@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { drills } from "../.test-build/catalog.js";
-import { generate } from "../.test-build/generator.js";
+import { exportTimeline, generate } from "../.test-build/generator.js";
 import { estimateRhythm } from "../.test-build/rhythm.js";
 
 const track = { filename: "pulse.wav", durationMs: 24000, sha256: "a".repeat(64), rhythm: null };
@@ -33,19 +33,22 @@ test("timeline alternates drills, aligns recovery to beats, and stops at audio e
     [250, "INLINE"], [4250, "IDLE"], [6250, "INLINE"], [10250, "IDLE"],
     [12250, "INLINE"], [16250, "IDLE"], [18250, "INLINE"], [22250, "IDLE"], [24000, "STOP"],
   ]);
-  assert.match(result.source, /^MSYNC_VERSION=1\n\n\[AUDIO\]/);
-  assert.ok(result.source.includes("SHA256=" + track.sha256));
-  assert.match(result.source, /00:24\.000 STOP\n$/);
+  const source = exportTimeline(track, result.cues, profile, result.feedBpm);
+  assert.match(source, /^MSYNC_VERSION=1\n\n\[AUDIO\]/);
+  assert.ok(source.includes("SHA256=" + track.sha256));
+  assert.match(source, /00:24\.000 STOP\n$/);
   assert.equal(result.feedBpm, 60);
 });
 
 test("export includes only used drills and mirrors placements for left-handed training", () => {
-  const result = generate(track, { bpm: 80, firstBeatMs: 22000 }, [...drills], {
+  const left = {
     ...profile, handedness: "left", recoveryBeats: 0, pace: "active",
-  });
+  };
+  const result = generate(track, { bpm: 80, firstBeatMs: 22000 }, [...drills], left);
+  const source = exportTimeline(track, result.cues, left, result.feedBpm);
   assert.equal(result.cues.length, 2);
-  assert.match(result.source, /DROP=-4;BPM=80/);
-  assert.doesNotMatch(result.source, /INL_ALTERNATE|INL_FALKENBERG/);
+  assert.match(source, /DROP=-4;BPM=80/);
+  assert.doesNotMatch(source, /INL_ALTERNATE|INL_FALKENBERG/);
 });
 
 test("invalid audio identity, tempo, offset, profile and empty drill selection fail", () => {
@@ -69,7 +72,10 @@ test("all catalog entries produce timelines accepted by a supplied frozen v1 val
 }, async () => {
   const { validateMsyncSource } = await import(process.env.MSYNC_VALIDATOR);
   for (const handedness of ["right", "left"]) {
-    const { source } = generate(track, rhythm, [...drills], { ...profile, handedness });
+    const configured = { ...profile, handedness };
+    const { cues, feedBpm } = generate(track, rhythm, [...drills], configured);
+    cues[0] = { timeMs: 500, command: "INLINE", drill: drills[2] };
+    const source = exportTimeline(track, cues, configured, feedBpm);
     const result = validateMsyncSource(source, {
       track: {
         filename: track.filename,
@@ -79,5 +85,14 @@ test("all catalog entries produce timelines accepted by a supplied frozen v1 val
     });
     assert.equal(result.valid, true, JSON.stringify(result.errors));
     assert.equal(result.warnings.length, 0, JSON.stringify(result.warnings));
+  }
+});
+
+test("editing a cue changes the export and invalid times block it", () => {
+  const { cues, feedBpm } = generate(track, rhythm, [drills[0]], profile);
+  cues[0] = { timeMs: 500, command: "INLINE", drill: drills[2] };
+  assert.match(exportTimeline(track, cues, profile, feedBpm), /00:00\.500 INLINE=INL_FALKENBERG/);
+  for (const timeMs of [NaN, -1, 0.1, cues[1].timeMs, cues[1].timeMs + 1]) {
+    assert.throws(() => exportTimeline(track, [{ ...cues[0], timeMs }, ...cues.slice(1)], profile, feedBpm));
   }
 });

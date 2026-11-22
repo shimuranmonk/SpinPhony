@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { drills } from "./catalog.js";
 import type { Drill } from "./catalog.js";
-import { generate, timestamp } from "./generator.js";
+import { exportTimeline, generate, timestamp } from "./generator.js";
 import type { Profile } from "./generator.js";
 import { analyzeFile } from "./rhythm.js";
 import type { Track } from "./rhythm.js";
@@ -49,13 +49,23 @@ function App() {
   }
 
   function download() {
-    if (!track || !result) return;
-    const url = URL.createObjectURL(new Blob([result.source], { type: "text/plain;charset=utf-8" }));
+    if (!track || !source) return;
+    const url = URL.createObjectURL(new Blob([source], { type: "text/plain;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = track.filename.replace(/\.[^.]+$/, "") + ".msync";
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+
+  let timelineError = "";
+  let source = "";
+  if (track && result) {
+    try {
+      source = exportTimeline(track, result.cues, profile, result.feedBpm);
+    } catch (failure) {
+      timelineError = failure instanceof Error ? failure.message : String(failure);
+    }
   }
 
   return (
@@ -119,10 +129,34 @@ function App() {
         <section className="result" aria-labelledby="timeline" aria-live="polite">
           <div className="result-header">
             <div><h2 id="timeline">Timeline</h2><p>{result.cues.length} cues · {result.feedBpm} balls/min</p></div>
-            <button onClick={download}>Download .msync</button>
+            <button disabled={!source} onClick={download}>Download .msync</button>
           </div>
-          <ol>{result.cues.map(cue => (
-            <li key={cue.timeMs}><time>{timestamp(cue.timeMs)}</time>{cue.command === "INLINE" ? cue.drill.name : cue.command === "IDLE" ? "Recovery" : "Stop"}</li>
+          <p className="hint">Cue times are in milliseconds from the start of the track.</p>
+          {timelineError && <p role="alert">{timelineError}</p>}
+          <ol>{result.cues.map((cue, index) => (
+            <li key={index}>
+              {cue.command === "STOP" ? <><time>{timestamp(cue.timeMs)}</time>Stop</> : (
+                <>
+                  <input aria-label={`Cue ${index + 1} time (ms)`} type="number" min="0" step="1"
+                    value={Number.isNaN(cue.timeMs) ? "" : cue.timeMs}
+                    onChange={event => {
+                      const timeMs = event.target.valueAsNumber;
+                      setResult({ ...result, cues: result.cues.map((item, position) =>
+                        position === index ? { ...item, timeMs } : item) });
+                    }} />
+                  {cue.command === "INLINE" ? (
+                    <select aria-label={`Cue ${index + 1} drill`} value={cue.drill.id} onChange={event => {
+                      const drill = selected.find(item => item.id === event.target.value);
+                      if (!drill) return;
+                      setResult({ ...result, cues: result.cues.map((item, position) =>
+                        position === index ? { ...cue, drill } : item) });
+                    }}>
+                      {selected.map(drill => <option key={drill.id} value={drill.id}>{drill.name}</option>)}
+                    </select>
+                  ) : "Recovery"}
+                </>
+              )}
+            </li>
           ))}</ol>
         </section>
       )}

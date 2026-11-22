@@ -18,4 +18,6 @@ A profile chooses pace, racket hand, work length and recovery length. The genera
 
 The format reference is the frozen community v1 parser and validator identified in Nova Prime's `docs/MSYNC.md` and exercised read-only at revision `0add69de48c1720f61da6d807ee23e88e979d69c`. SpinPhony has no dependency on that repository at build time or runtime. The exporter uses a narrow subset with `MSYNC_VERSION=1`, `[AUDIO]` filename/SHA-256/duration, referenced `[INLINE:...]` definitions and strictly increasing `[CUES]` timestamps. Inline definitions make the files independent of a consumer's built-in drill IDs. SHA-256 and duration are tied to the selected file.
 
-Timeline editing and GitHub Pages deployment follow this slice. Nova Prime integration and live robot control are out of scope.
+The editor keeps generated cue order and the final Stop at the track duration. Drill cues can be reassigned within the selection. Work and recovery times can be edited, and export is disabled until cue times are valid. The inline definitions are generated from the edited timeline.
+
+The Pages workflow builds and tests the site from `main` on manual dispatch and deploys only the static `dist/` artifact. Nova Prime integration and live robot control are out of scope.

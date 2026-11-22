@@ -31,5 +31,5 @@ button:disabled { opacity: .55; cursor: default; }
 .result { margin-top: 1rem; }
 .result-header { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; justify-content: space-between; }
 .result ol { list-style: none; padding: 0; margin: .5rem 0 0; max-height: 24rem; overflow: auto; }
-.result li { display: flex; gap: 1rem; padding: .5rem 0; border-top: 1px solid #3b4d43; }
+.result li { display: grid; grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr); align-items: center; gap: .75rem; padding: .5rem 0; border-top: 1px solid #3b4d43; }
 time { font-variant-numeric: tabular-nums; color: #caf579; }

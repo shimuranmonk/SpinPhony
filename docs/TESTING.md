@@ -12,4 +12,9 @@
 
 The optional compatibility test loads `validateMsyncSource` from the file URL in `MSYNC_VALIDATOR`. It uses the frozen reference revision recorded in [architecture](ARCHITECTURE.md). Ordinary local tests can run without that reference.
 
-Real-music accuracy, other browser/audio codec combinations, timeline editing and hosted deployment remain pending.
+## Timeline editor checkpoint (2026-11-23)
+
+- The pre-commit editor checkout based on `933a339` passed the production build and all eight automated tests with the frozen validator loaded.
+- Chrome at 390 × 844 blocked a duplicate cue time, then accepted a corrected first cue at 500 ms assigned to Falkenberg. The downloaded file passed the frozen validator with zero warnings.
+- Chrome decoded the Ogg Vorbis [Maple Leaf Rag piano-roll transfer](https://commons.wikimedia.org/wiki/File:Maple_Leaf_Rag_-_played_by_Scott_Joplin_1916_sample.ogg). The estimator returned no BPM or offset. Manual entry enabled generation. The second recording was unavailable after HTTP 429, so this is one musical sample without reference beat annotations.
+- The Pages workflow is prepared. Hosted deployment and broader browser and music coverage are pending.

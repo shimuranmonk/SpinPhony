@@ -13,6 +13,8 @@ npm run dev
 
 Choose a browser-decodable audio file, check the estimated tempo and first beat, select drills and a training profile, then generate and download the timeline. Audio analysis and SHA-256 hashing happen in the browser. Keep the original audio with the export because the timeline identifies those exact bytes.
 
+After generation, edit cue times in milliseconds or reassign a drill from the selected catalog entries. Cue times must stay in order. Changing source inputs or generating again replaces the current edit.
+
 `npm test` runs automated checks and `npm run build` creates a static site in `dist/`. Use localhost or HTTPS for browser hashing.
 
 See [continuation](docs/CONTINUATION.md), [architecture](docs/ARCHITECTURE.md) and [testing](docs/TESTING.md) for project status and compatibility evidence.

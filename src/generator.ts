@@ -42,18 +42,42 @@ export function generate(track: Track, rhythm: Rhythm, selected: Drill[], profil
   const maxFeed = profile.pace === "steady" ? 60 : 90;
   const bpm = Math.max(30, Math.round(rhythm.bpm / Math.ceil(rhythm.bpm / maxFeed)));
   const cues: Cue[] = [];
-  const used = new Set<Drill>();
   for (let block = 0; ; block++) {
     const start = Math.round(rhythm.firstBeatMs + block * stride * beatMs);
     if (start > durationMs - 2000) break;
     const drill = selected[block % selected.length];
-    used.add(drill);
     cues.push({ timeMs: start, command: "INLINE", drill });
     const end = Math.round(rhythm.firstBeatMs + (block * stride + profile.workBeats) * beatMs);
     if (profile.recoveryBeats && end < durationMs) cues.push({ timeMs: end, command: "IDLE" });
   }
   cues.push({ timeMs: durationMs, command: "STOP" });
 
+  return { cues, feedBpm: bpm };
+}
+
+export function exportTimeline(track: Track, cues: Cue[], profile: Profile, bpm: number) {
+  const { filename, sha256, durationMs } = track;
+  if (cues[0]?.command !== "INLINE" || cues.at(-1)?.command !== "STOP"
+    || cues.at(-1)?.timeMs !== track.durationMs) {
+    throw new Error("The timeline must start with a drill and stop at the end of the audio.");
+  }
+  const used = new Set<Drill>();
+  let previous = -1;
+  let active = false;
+  for (const cue of cues) {
+    if (!Number.isInteger(cue.timeMs) || cue.timeMs <= previous || cue.timeMs > track.durationMs) {
+      throw new Error("Cue times must be whole milliseconds in increasing order.");
+    }
+    if (cue.command === "STOP" && cue.timeMs !== durationMs) {
+      throw new Error("Stop must be the final cue.");
+    }
+    if (cue.command === "IDLE" && !active) {
+      throw new Error("Recovery must follow a drill.");
+    }
+    previous = cue.timeMs;
+    active = cue.command === "INLINE";
+    if (cue.command === "INLINE") used.add(cue.drill);
+  }
   const direction = profile.handedness === "right" ? 1 : -1;
   const blocks = Array.from(used, drill => [
     "[INLINE:" + drill.id + "]",
@@ -70,5 +94,5 @@ export function generate(track: Track, rhythm: Rhythm, selected: Drill[], profil
     ...blocks,
     ["[CUES]", ...lines].join("\n"),
   ].join("\n\n") + "\n";
-  return { source, cues, feedBpm: bpm };
+  return source;
 }

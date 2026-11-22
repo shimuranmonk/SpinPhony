@@ -6,8 +6,10 @@ PCON v1 is installed locally and bundled in the repository. The six continuity r
 
 The standalone browser generator decodes local audio, estimates a steady rhythm, accepts manual timing, rotates selected drill patterns on a beat grid, previews cues and downloads MSYNC v1. The [architecture](ARCHITECTURE.md) records format and catalog provenance and the [testing record](TESTING.md) records build, automated and browser checks.
 
+The 2026-11-23 follow-up adds editing for generated work and recovery times and drill assignments. The downloaded file reflects those edits. The Pages workflow is ready for review and requires a manual run from the default branch.
+
 ## Resume
 
-1. Inspect current branch heads and PR state. Merge decisions belong to the maintainer. Once continuity lands, confirm the generator PR targets `main` and only shows the intended generator changes.
-2. Check tempo and beat-offset estimates on real tracks across genres and browser codecs. Record the cases that require manual timing.
-3. Add editable cue timing and drill assignments, then deploy the reviewed static build to GitHub Pages and verify the hosted site. The current timeline is a preview.
+1. Inspect current branch heads and PR state. Merge decisions belong to the maintainer. After each parent lands, confirm the next PR targets the intended base and its diff contains only its own changes.
+2. Once the application reaches `main`, set the Pages publishing source to GitHub Actions and run **Publish SpinPhony** from `main`. Verify the hosted revision with a real audio file and an MSYNC download.
+3. Expand the recorded-music checks across genres, browsers and codecs. Record tempo and beat offset against labeled references and record tracks that require manual timing.
