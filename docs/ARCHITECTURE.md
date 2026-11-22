@@ -20,6 +20,8 @@ The format reference is the frozen community v1 parser and validator identified 
 
 The editor keeps generated cue order and the final Stop at the track duration. Drill cues can be reassigned within the selection. Work and recovery times can be edited, and export is disabled until cue times are valid. The inline definitions are generated from the edited timeline.
 
+Preview highlights the current cue using the local audio element's clock. The cue list scrolls independently of the playback controls. Optional cue notes and automatically generated descriptions use full-line hash comments supported by MSYNC v1.
+
 The Pages workflow builds and tests the site from `main` on manual dispatch and deploys only the static `dist/` artifact. Nova Prime integration and live robot control are out of scope.
 
 If the onset intervals disagree, a second pass looks for repeated patterns in the onset signal. It estimates a beat period and phase when the pattern clears confidence thresholds. Manual timing remains available.

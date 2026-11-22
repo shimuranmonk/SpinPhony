@@ -31,7 +31,13 @@ button { padding: .65rem 1rem; color: #141c19; background: #caf579; border: 0; b
 button:disabled { opacity: .55; cursor: default; }
 :focus-visible { outline: 2px solid #caf579; outline-offset: 3px; }
 .result { margin-top: 1rem; }
+.tabs { display: flex; gap: .5rem; margin-bottom: 1rem; }
+.tabs [aria-selected=false] { background: #26362e; color: #ecf2ed; }
+.timeline-window { border: 1px solid #3b4d43; border-radius: .65rem; overflow: hidden; }
+.transport { display: flex; flex-wrap: wrap; gap: .5rem; padding: .65rem; background: #141c19; }
 .result-header { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; justify-content: space-between; }
-.result ol { list-style: none; padding: 0; margin: .5rem 0 0; max-height: 24rem; overflow: auto; }
-.result li { display: grid; grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr); align-items: center; gap: .75rem; padding: .5rem 0; border-top: 1px solid #3b4d43; }
+.result ol { list-style: none; padding: 0; margin: 0; max-height: min(24rem, 52vh); overflow: auto; }
+.result li { display: grid; grid-template-columns: minmax(5rem, 7rem) minmax(0, 1fr); align-items: center; gap: .6rem; padding: .65rem; border-top: 1px solid #3b4d43; }
+.result li[aria-current=step] { background: #354926; box-shadow: inset 3px 0 #caf579; }
+.cue-note { grid-column: 1 / -1; }
 time { font-variant-numeric: tabular-nums; color: #caf579; }

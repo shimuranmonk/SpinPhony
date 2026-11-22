@@ -15,6 +15,8 @@ Choose a browser-decodable audio file, check the estimated tempo and first beat,
 
 After generation, edit cue times in milliseconds or reassign a drill from the selected catalog entries. Cue times must stay in order. Changing source inputs or generating again replaces the current edit.
 
+Use **Setup** to configure the session and **Preview** to hear the track with synchronized cue highlighting. Preview also lets you add cue comments. Downloads include those notes and a description of each used inline drill.
+
 `npm test` runs automated checks and `npm run build` creates a static site in `dist/`. Use localhost or HTTPS for browser hashing.
 
 See [continuation](docs/CONTINUATION.md), [architecture](docs/ARCHITECTURE.md) and [testing](docs/TESTING.md) for project status and compatibility evidence.

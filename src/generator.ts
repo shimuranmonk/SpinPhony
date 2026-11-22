@@ -8,9 +8,9 @@ export type Profile = {
   recoveryBeats: number;
 };
 
-export type Cue =
+export type Cue = { note?: string } & (
   | { timeMs: number; command: "INLINE"; drill: Drill }
-  | { timeMs: number; command: "IDLE" | "STOP" };
+  | { timeMs: number; command: "IDLE" | "STOP" });
 
 export function timestamp(ms: number): string {
   return [
@@ -81,6 +81,7 @@ export function exportTimeline(track: Track, cues: Cue[], profile: Profile, bpm:
   const direction = profile.handedness === "right" ? 1 : -1;
   const blocks = Array.from(used, drill => [
     "[INLINE:" + drill.id + "]",
+    "# Drill: " + drill.name + " — " + drill.description,
     "NAME=" + drill.name,
     "RANDOM=" + drill.random,
     ...drill.balls.map((ball, index) => {
@@ -89,8 +90,13 @@ export function exportTimeline(track: Track, cues: Cue[], profile: Profile, bpm:
         + ";HEIGHT=20;DROP=" + (ball.drop * direction) + ";BPM=" + bpm + ";REPS=1";
     }),
   ].join("\n"));
-  const lines = cues.map(cue => timestamp(cue.timeMs) + " "
-    + (cue.command === "INLINE" ? "INLINE=" + cue.drill.id : cue.command));
+  const lines = cues.flatMap(cue => {
+    const label = cue.command === "INLINE" ? cue.drill.name
+      : cue.command === "IDLE" ? "Recovery" : "End of track";
+    const note = cue.note?.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/gu, " ").trim();
+    const command = cue.command === "INLINE" ? "INLINE=" + cue.drill.id : cue.command;
+    return ["# " + label + (note ? " — " + note : ""), timestamp(cue.timeMs) + " " + command];
+  });
   const source = [
     "MSYNC_VERSION=1",
     ["[AUDIO]", "FILENAME=" + filename, "SHA256=" + sha256, "DURATION=" + timestamp(durationMs)].join("\n"),

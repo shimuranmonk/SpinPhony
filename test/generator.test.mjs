@@ -128,3 +128,14 @@ test("editing a cue changes the export and invalid times block it", () => {
     assert.throws(() => exportTimeline(track, [{ ...cues[0], timeMs }, ...cues.slice(1)], profile, feedBpm));
   }
 });
+
+test("drill descriptions and cue notes stay on separate MSYNC comment lines", () => {
+  const { cues, feedBpm } = generate(track, rhythm, [drills[0]], profile);
+  cues[0].note = "Forehand multiball\n00:02.000 STOP";
+  const source = exportTimeline(track, cues, profile, feedBpm);
+  assert.match(source, /\[INLINE:INL_FOREHAND\]\n# Drill: Forehand drive/);
+  assert.match(source, /# Forehand drive — Forehand multiball 00:02\.000 STOP\n00:00\.250 INLINE=INL_FOREHAND/);
+  assert.match(source, /# Recovery\n00:04\.250 IDLE/);
+  assert.match(source, /# End of track\n00:24\.000 STOP/);
+  assert.doesNotMatch(source, /^00:02\.000 STOP$/m);
+});

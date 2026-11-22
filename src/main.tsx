@@ -4,11 +4,14 @@ import { drills, starterDrills } from "./catalog.js";
 import type { Drill } from "./catalog.js";
 import { exportTimeline, generate, timestamp } from "./generator.js";
 import type { Profile } from "./generator.js";
+import { TimelinePreview } from "./TimelinePreview.js";
 import { analyzeFile } from "./rhythm.js";
 import type { Track } from "./rhythm.js";
 import "./style.css";
 
 function App() {
+  const [tab, setTab] = useState<"setup" | "preview">("setup");
+  const [file, setFile] = useState<File>();
   const [track, setTrack] = useState<Track>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -25,6 +28,7 @@ function App() {
 
   async function load(file: File | undefined) {
     const id = ++request.current;
+    setFile(file);
     setTrack(undefined);
     setResult(undefined);
     setError("");
@@ -81,12 +85,29 @@ function App() {
         <h1>MSYNC Generator</h1>
         <p>Turn a local music track into a timed table tennis practice session.</p>
       </header>
-      <form onSubmit={event => {
+      <div className="tabs" role="tablist" aria-label="SpinPhony" onKeyDown={event => {
+        if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+        event.preventDefault();
+        const next = event.key === "Home" ? "setup" : event.key === "End" ? "preview"
+          : tab === "setup" ? "preview" : "setup";
+        setTab(next);
+        document.getElementById(next + "-tab")?.focus();
+      }}>
+        {(["setup", "preview"] as const).map(item => (
+          <button key={item} id={item + "-tab"} role="tab" type="button" aria-selected={tab === item}
+            aria-controls={item + "-panel"} tabIndex={tab === item ? 0 : -1} onClick={() => setTab(item)}>
+            {item === "setup" ? "Setup" : "Preview"}
+          </button>
+        ))}
+      </div>
+      <form id="setup-panel" role="tabpanel" aria-labelledby="setup-tab" hidden={tab !== "setup"} onSubmit={event => {
         event.preventDefault();
         if (!track) return;
         setError("");
         try {
           setResult(generate(track, { bpm: Number(bpm), firstBeatMs: Number(offset) }, selected, profile));
+          setTab("preview");
+          document.getElementById("preview-tab")?.focus();
         } catch (failure) {
           setError(failure instanceof Error ? failure.message : String(failure));
         }
@@ -145,41 +166,13 @@ function App() {
         {error && <p role="alert">{error}</p>}
         <button disabled={!track || busy} type="submit">Generate timeline</button>
       </form>
-      {result && (
-        <section className="result" aria-labelledby="timeline" aria-live="polite">
-          <div className="result-header">
-            <div><h2 id="timeline">Timeline</h2><p>{result.cues.length} cues · {result.feedBpm} balls/min</p></div>
-            <button disabled={!source} onClick={download}>Download .msync</button>
-          </div>
-          <p className="hint">Cue times are in milliseconds from the start of the track.</p>
-          {timelineError && <p role="alert">{timelineError}</p>}
-          <ol>{result.cues.map((cue, index) => (
-            <li key={index}>
-              {cue.command === "STOP" ? <><time>{timestamp(cue.timeMs)}</time>Stop</> : (
-                <>
-                  <input aria-label={`Cue ${index + 1} time (ms)`} type="number" min="0" step="1"
-                    value={Number.isNaN(cue.timeMs) ? "" : cue.timeMs}
-                    onChange={event => {
-                      const timeMs = event.target.valueAsNumber;
-                      setResult({ ...result, cues: result.cues.map((item, position) =>
-                        position === index ? { ...item, timeMs } : item) });
-                    }} />
-                  {cue.command === "INLINE" ? (
-                    <select aria-label={`Cue ${index + 1} drill`} value={cue.drill.id} onChange={event => {
-                      const drill = selected.find(item => item.id === event.target.value);
-                      if (!drill) return;
-                      setResult({ ...result, cues: result.cues.map((item, position) =>
-                        position === index ? { ...cue, drill } : item) });
-                    }}>
-                      {selected.map(drill => <option key={drill.id} value={drill.id}>{drill.name}</option>)}
-                    </select>
-                  ) : "Recovery"}
-                </>
-              )}
-            </li>
-          ))}</ol>
-        </section>
-      )}
+      <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
+        {tab === "preview" && (result && file ? (
+          <TimelinePreview file={file} cues={result.cues} drills={selected} feedBpm={result.feedBpm}
+            validationError={timelineError} canDownload={Boolean(source)} onDownload={download}
+            onEdit={cues => setResult({ ...result, cues })} />
+        ) : <section><p>Generate a timeline in Setup to preview it here.</p></section>)}
+      </div>
     </main>
   );
 }
