@@ -1,0 +1,35 @@
+* { box-sizing: border-box; }
+:root {
+  font: 16px/1.5 system-ui, sans-serif;
+  color: #ecf2ed;
+  background: #141c19;
+  color-scheme: dark;
+}
+body { margin: 0; }
+main { width: min(100% - 2rem, 48rem); margin: 3rem auto; }
+header { margin-bottom: 2rem; }
+.brand { color: #caf579; font-weight: 750; letter-spacing: .04em; }
+h1 { margin: 0; font-size: clamp(2rem, 8vw, 4rem); line-height: 1.1; letter-spacing: -.055em; }
+h2 { margin: 0 0 .75rem; font-size: 1.2rem; }
+p { margin: .65rem 0; }
+section { padding: 1.25rem; margin-bottom: 1rem; border: 1px solid #3b4d43; border-radius: 1rem; background: #1e2924; }
+label { display: grid; gap: .35rem; min-width: 0; }
+input, select, button { font: inherit; }
+input:not([type=checkbox]), select { width: 100%; padding: .6rem; border: 1px solid #56695e; border-radius: .5rem; background: #141c19; color: inherit; }
+input[type=checkbox] { accent-color: #caf579; width: 1.15rem; height: 1.15rem; margin: .2rem 0; }
+a { color: #d0efa8; }
+.fields { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.drill { display: flex; align-items: start; flex-wrap: wrap; justify-content: space-between; gap: .35rem 1rem; padding: .7rem 0; }
+.drill + .drill { border-top: 1px solid #3b4d43; }
+.drill label { display: flex; gap: .65rem; }
+small { display: block; font-size: .9rem; }
+.hint, small { color: #c0cec4; }
+[role=alert] { color: #ffbfb4; }
+button { padding: .65rem 1rem; color: #141c19; background: #caf579; border: 0; border-radius: .6rem; font-weight: 700; cursor: pointer; }
+button:disabled { opacity: .55; cursor: default; }
+:focus-visible { outline: 2px solid #caf579; outline-offset: 3px; }
+.result { margin-top: 1rem; }
+.result-header { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; justify-content: space-between; }
+.result ol { list-style: none; padding: 0; margin: .5rem 0 0; max-height: 24rem; overflow: auto; }
+.result li { display: flex; gap: 1rem; padding: .5rem 0; border-top: 1px solid #3b4d43; }
+time { font-variant-numeric: tabular-nums; color: #caf579; }

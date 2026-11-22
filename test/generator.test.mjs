@@ -1,0 +1,83 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { drills } from "../.test-build/catalog.js";
+import { generate } from "../.test-build/generator.js";
+import { estimateRhythm } from "../.test-build/rhythm.js";
+
+const track = { filename: "pulse.wav", durationMs: 24000, sha256: "a".repeat(64), rhythm: null };
+const rhythm = { bpm: 120, firstBeatMs: 250 };
+const profile = { pace: "steady", handedness: "right", workBeats: 8, recoveryBeats: 4 };
+
+test("periodic transients produce a tempo and first beat, even with opposite-phase stereo", () => {
+  const rate = 12000;
+  const channel = new Float32Array(10 * rate);
+  for (let sample = rate / 4; sample < channel.length; sample += rate / 2) {
+    channel.fill(0.6, sample, sample + 120);
+  }
+  assert.deepEqual(estimateRhythm([channel, channel.map(sample => -sample)], rate), rhythm);
+});
+
+test("silence and uneven transients need manual tempo", () => {
+  const rate = 12000;
+  const channel = new Float32Array(10 * rate);
+  assert.equal(estimateRhythm([channel], rate), null);
+  for (const second of [0.25, 0.55, 1.4, 2.9, 4.25, 5.2, 7.05]) {
+    channel.fill(0.6, Math.round(second * rate), Math.round(second * rate) + 120);
+  }
+  assert.equal(estimateRhythm([channel], rate), null);
+});
+
+test("timeline alternates drills, aligns recovery to beats, and stops at audio end", () => {
+  const result = generate(track, rhythm, [...drills], profile);
+  assert.deepEqual(result.cues.map(cue => [cue.timeMs, cue.command]), [
+    [250, "INLINE"], [4250, "IDLE"], [6250, "INLINE"], [10250, "IDLE"],
+    [12250, "INLINE"], [16250, "IDLE"], [18250, "INLINE"], [22250, "IDLE"], [24000, "STOP"],
+  ]);
+  assert.match(result.source, /^MSYNC_VERSION=1\n\n\[AUDIO\]/);
+  assert.ok(result.source.includes("SHA256=" + track.sha256));
+  assert.match(result.source, /00:24\.000 STOP\n$/);
+  assert.equal(result.feedBpm, 60);
+});
+
+test("export includes only used drills and mirrors placements for left-handed training", () => {
+  const result = generate(track, { bpm: 80, firstBeatMs: 22000 }, [...drills], {
+    ...profile, handedness: "left", recoveryBeats: 0, pace: "active",
+  });
+  assert.equal(result.cues.length, 2);
+  assert.match(result.source, /DROP=-4;BPM=80/);
+  assert.doesNotMatch(result.source, /INL_ALTERNATE|INL_FALKENBERG/);
+});
+
+test("invalid audio identity, tempo, offset, profile and empty drill selection fail", () => {
+  assert.throws(() => generate({ ...track, filename: ".wav" }, rhythm, [...drills], profile));
+  assert.throws(() => generate({ ...track, filename: "music\n[CUES].wav" }, rhythm, [...drills], profile));
+  assert.throws(() => generate({ ...track, sha256: "123" }, rhythm, [...drills], profile));
+  assert.throws(() => generate(track, { ...rhythm, bpm: 0 }, [...drills], profile));
+  assert.throws(() => generate(track, { ...rhythm, firstBeatMs: 23000 }, [...drills], profile));
+  assert.throws(() => generate(track, rhythm, [...drills], { ...profile, workBeats: 0 }));
+  assert.throws(() => generate(track, rhythm, [], profile));
+});
+
+test("steady and active profiles choose different feed rates on fast music", () => {
+  const fast = { ...rhythm, bpm: 150 };
+  assert.equal(generate(track, fast, [...drills], profile).feedBpm, 50);
+  assert.equal(generate(track, fast, [...drills], { ...profile, pace: "active" }).feedBpm, 75);
+});
+
+test("all catalog entries produce timelines accepted by a supplied frozen v1 validator", {
+  skip: !process.env.MSYNC_VALIDATOR,
+}, async () => {
+  const { validateMsyncSource } = await import(process.env.MSYNC_VALIDATOR);
+  for (const handedness of ["right", "left"]) {
+    const { source } = generate(track, rhythm, [...drills], { ...profile, handedness });
+    const result = validateMsyncSource(source, {
+      track: {
+        filename: track.filename,
+        metadata: { sha256: track.sha256 },
+        duration: track.durationMs / 1000,
+      },
+    });
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+    assert.equal(result.warnings.length, 0, JSON.stringify(result.warnings));
+  }
+});

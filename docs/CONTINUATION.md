@@ -1,7 +1,7 @@
 # SpinPhony continuation
 
-- **Checkpoint (2026-11-22)** · MVP v0.1 planning. Continuity initialized on `docs/pcon-init` from `main` at `1d4429629c38ca934e4d994eeabf992104d82142`. Check the current ref and worktree before continuing.
-- **State** · Music-driven table tennis choreography and validated MSYNC v1 export are planned. The reviewed main revision contains the README. Application implementation and deployment are pending.
-- **Next action** · After review of this documentation branch, define the audio-analysis MVP contract and identify the authoritative MSYNC v1 specification and fixtures. Success is documented inputs, outputs, limits and acceptance cases for the first implementation slice.
+- **Checkpoint (2026-11-22)** · PCON v1 is installed and structurally validated. [PR #1](https://github.com/shimuranmonk/SpinPhony/pull/1) carries the initialization into `main`. The MVP branch `feat/browser-generator` builds on `docs/pcon-init` at `31ee5d1ab945e169af596d6d1af2d019d578e117`.
+- **State** · Local audio analysis, source-backed drill selection, training profiles, timeline preview and MSYNC v1 download are implemented and verified in the development checkout. Review the stacked changes before merging. Deployment is pending.
+- **Next action** · After the continuity PR lands, confirm the MVP PR targets `main` and its diff contains only generator work. Then review the generator using representative music and record tempo/offset results before adding the timeline editor and Pages deployment.
 
-Read the [current handover](HANDOVER.md), then load [decisions](DECISIONS.md), [architecture](ARCHITECTURE.md) and [testing](TESTING.md) as needed.
+Read the [handover](HANDOVER.md), [decisions](DECISIONS.md), [architecture](ARCHITECTURE.md) and [testing](TESTING.md).
