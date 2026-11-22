@@ -15,3 +15,5 @@ The 2026-11-23 follow-up adds editing for generated work and recovery times and 
 3. Expand the recorded-music checks across genres, browsers and codecs. Record tempo and beat offset against labeled references and record tracks that require manual timing.
 
 The beat-detection follow-up adds correlation of repeated onset patterns and distinguishes estimated timing from manual fallback in the UI. Review the follow-up against the timeline branch, then expand music testing using beat annotations.
+
+The training-library follow-up adds 37 manual-derived patterns and five coaching drills, with source filtering and an unchanged three-drill starter selection. Review the linked manual coverage and distinguish inline feed approximations from calibrated presets.

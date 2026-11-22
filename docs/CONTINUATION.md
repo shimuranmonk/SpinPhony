@@ -7,3 +7,5 @@
 Read the [handover](HANDOVER.md), [decisions](DECISIONS.md), [architecture](ARCHITECTURE.md) and [testing](TESTING.md).
 
 The `fix/music-tempo` follow-up adds a repeated-pattern detector for tracks with uneven onset spacing. The updated local preview estimated timing and generated a timeline for a rock MP3 that previously required manual entry.
+
+The `feat/training-library` follow-up adds 42 searchable, individually sourced drills. The frozen MSYNC validator accepts every drill with either racket hand. Review the library changes on top of the beat-detection branch.

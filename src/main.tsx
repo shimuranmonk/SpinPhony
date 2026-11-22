@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { drills } from "./catalog.js";
+import { drills, starterDrills } from "./catalog.js";
 import type { Drill } from "./catalog.js";
 import { exportTimeline, generate, timestamp } from "./generator.js";
 import type { Profile } from "./generator.js";
@@ -14,7 +14,9 @@ function App() {
   const [error, setError] = useState("");
   const [bpm, setBpm] = useState("");
   const [offset, setOffset] = useState("0");
-  const [selected, setSelected] = useState<Drill[]>([...drills]);
+  const [selected, setSelected] = useState<Drill[]>(starterDrills);
+  const [drillQuery, setDrillQuery] = useState("");
+  const [drillSource, setDrillSource] = useState("");
   const [profile, setProfile] = useState<Profile>({
     pace: "steady", handedness: "right", workBeats: 16, recoveryBeats: 4,
   });
@@ -60,6 +62,10 @@ function App() {
 
   let timelineError = "";
   let source = "";
+  const query = drillQuery.trim().toLowerCase();
+  const visibleDrills = drills.filter(drill =>
+    (!drillSource || drill.category === drillSource)
+    && (drill.name + " " + drill.description).toLowerCase().includes(query));
   if (track && result) {
     try {
       source = exportTimeline(track, result.cues, profile, result.feedBpm);
@@ -100,19 +106,32 @@ function App() {
           </div>
         </section>
         <section>
-          <h2>Drills</h2>
-          {drills.map(drill => (
+          <h2>Training library</h2>
+          <div className="fields">
+            <label>Search drills<input type="search" value={drillQuery} onChange={event => setDrillQuery(event.target.value)} /></label>
+            <div className="drill-source"><label htmlFor="drill-source">Source</label>
+            <select id="drill-source" value={drillSource} onChange={event => setDrillSource(event.target.value)}>
+              <option value="">All sources</option><option>Nova S Pro manual</option><option>Coaching drill</option>
+            </select></div>
+          </div>
+          <p className="hint" role="status">{selected.length} selected · {visibleDrills.length} of {drills.length} drills shown</p>
+          <div className="drill-library" role="group" aria-label="Available drills" tabIndex={0}>
+          {visibleDrills.length === 0 && <p>No matching drills.</p>}
+          {visibleDrills.map(drill => (
             <div className="drill" key={drill.id}>
               <label>
                 <input type="checkbox" checked={selected.includes(drill)} onChange={event => {
                   setResult(undefined);
-                  setSelected(drills.filter(item => item === drill ? event.target.checked : selected.includes(item)));
+                  const checked = event.target.checked;
+                  setSelected(previous => [...starterDrills, ...drills.filter(item => !starterDrills.includes(item))]
+                    .filter(item => item === drill ? checked : previous.includes(item)));
                 }} />
                 <span><strong>{drill.name}</strong><small>{drill.description}</small></span>
               </label>
               <a href={drill.source} target="_blank" rel="noreferrer">{drill.category}</a>
             </div>
           ))}
+          </div>
         </section>
         <section>
           <h2>Training profile</h2>

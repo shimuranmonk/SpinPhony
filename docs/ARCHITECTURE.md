@@ -10,9 +10,9 @@ A profile chooses pace, racket hand, work length and recovery length. The genera
 
 ## Drill provenance
 
-- Forehand drive and alternating forehand/backhand drive are based on the Nova S Pro programmed combinations described in section 3.4 of the [PONGBOT manual](https://tennis2table.com/wp-content/uploads/2025/12/PONGBOT-NOVA-S-PRO-OPERATION-MANUAL.pdf).
-- Falkenberg follows Larry Hodges's [coaching description](https://www.tabletenniscoaching.com/node/1183), with two feeds to the backhand side and one to the wide forehand.
-- The catalog encodes placement patterns using SpinPhony's inline parameters. Verification covers pattern provenance and file acceptance. Exact manufacturer presets, calibration and physical landing positions are outside that evidence.
+- The searchable library includes 37 adaptations from the [PONGBOT Nova S Pro manual](https://device.report/m/5844640969b9ba563c817978f1836deee83beee7bd85481c94e34c2dbfffc368.pdf), including the readable §3.4.2 table, the 2×2 example and the §3.5.10 repetition example. Repeated rows and identical standard and near-net patterns share one entry. The advertised 264 combinations include app presets that the public table does not enumerate.
+- Five entries come from coaching sources, including [Falkenberg](https://www.tabletenniscoaching.com/node/1183), [Larry Hodges's practice sessions](https://www.tabletenniscoaching.com/node/18) and [footwork coaching](https://www.youtube.com/watch?v=1Nv8ZFfiDFo). These are established practice exercises. No comparative efficacy claims are made.
+- Inline export preserves sequence, lateral targets, spin kind, and random versus sequential ordering. Short versus long feeds use distinct starting speeds. Random manufacturer patterns are represented by example randomized feed targets. Exact preset parameters, robot placement, and physical depth require separate validation.
 
 ## MSYNC v1 export
 

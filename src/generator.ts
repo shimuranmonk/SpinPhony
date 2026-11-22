@@ -82,9 +82,12 @@ export function exportTimeline(track: Track, cues: Cue[], profile: Profile, bpm:
   const blocks = Array.from(used, drill => [
     "[INLINE:" + drill.id + "]",
     "NAME=" + drill.name,
-    "RANDOM=false",
-    ...drill.placements.map((drop, index) =>
-      "BALL=" + (index + 1) + ";SPEED=5;SPIN=2;TYPE=top;HEIGHT=20;DROP=" + (drop * direction) + ";BPM=" + bpm + ";REPS=1"),
+    "RANDOM=" + drill.random,
+    ...drill.balls.map((ball, index) => {
+      const speed = ball.depth === "short" ? 3 : 5;
+      return "BALL=" + (index + 1) + ";SPEED=" + speed + ";SPIN=2;TYPE=" + ball.spin
+        + ";HEIGHT=20;DROP=" + (ball.drop * direction) + ";BPM=" + bpm + ";REPS=1";
+    }),
   ].join("\n"));
   const lines = cues.map(cue => timestamp(cue.timeMs) + " "
     + (cue.command === "INLINE" ? "INLINE=" + cue.drill.id : cue.command));

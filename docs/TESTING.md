@@ -20,3 +20,5 @@ The optional compatibility test loads `validateMsyncSource` from the file URL in
 - The Pages workflow is prepared. Hosted deployment and broader browser and music coverage are pending.
 
 The rhythm follow-up passed the production build and all nine tests with the frozen validator loaded. In Chrome, a 14.972-second local rock MP3 previously requiring manual entry generated a timeline at an estimated 176.5 BPM and 260 ms. No reference beat labels were available. The source audio stayed local.
+
+The training library passed the production build and all ten tests with the frozen validator loaded. All 42 patterns exported without warnings for both racket hands. Chrome at 390 px verified the source filter, drill search, cue reassignment and mixed-spin randomized download. Physical landing accuracy remains unverified.

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { drills } from "../.test-build/catalog.js";
+import { drills as library, starterDrills as drills } from "../.test-build/catalog.js";
 import { exportTimeline, generate } from "../.test-build/generator.js";
 import { estimateRhythm } from "../.test-build/rhythm.js";
 
@@ -100,7 +100,24 @@ test("all catalog entries produce timelines accepted by a supplied frozen v1 val
     });
     assert.equal(result.valid, true, JSON.stringify(result.errors));
     assert.equal(result.warnings.length, 0, JSON.stringify(result.warnings));
+    for (const drill of library) {
+      const single = generate(track, rhythm, [drill], configured);
+      const output = exportTimeline(track, single.cues, configured, single.feedBpm);
+      const validated = validateMsyncSource(output);
+      assert.equal(validated.valid, true, drill.name + ": " + JSON.stringify(validated.errors));
+      assert.equal(validated.warnings.length, 0, drill.name + ": " + JSON.stringify(validated.warnings));
+    }
   }
+});
+
+test("library exports short backspin and random feeds as distinct settings", () => {
+  assert.equal(new Set(library.map(drill => drill.id)).size, library.length);
+  const drill = library.find(drill => drill.id === "INL_ALL_RANDOM");
+  const result = generate(track, rhythm, [drill], profile);
+  const source = exportTimeline(track, result.cues, profile, result.feedBpm);
+  assert.match(source, /RANDOM=true/);
+  assert.match(source, /SPEED=3;SPIN=2;TYPE=back/);
+  assert.match(source, /SPEED=5;SPIN=2;TYPE=top/);
 });
 
 test("editing a cue changes the export and invalid times block it", () => {

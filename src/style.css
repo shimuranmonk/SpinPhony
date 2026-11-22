@@ -21,6 +21,8 @@ a { color: #d0efa8; }
 .fields { display: grid; gap: .75rem; grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .drill { display: flex; align-items: start; flex-wrap: wrap; justify-content: space-between; gap: .35rem 1rem; padding: .7rem 0; }
 .drill + .drill { border-top: 1px solid #3b4d43; }
+.drill-library { max-height: 25rem; overflow: auto; }
+.drill-source { display: grid; gap: .35rem; }
 .drill label { display: flex; gap: .65rem; }
 small { display: block; font-size: .9rem; }
 .hint, small { color: #c0cec4; }
