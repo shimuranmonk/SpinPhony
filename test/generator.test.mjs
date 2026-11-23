@@ -18,6 +18,15 @@ const manualBlocks = [
   { id: 5, timeMs: 10000, kind: "STOP", note: "" },
 ];
 
+test("manual SESSION uses custom values and flags invalid fields", () => {
+  const session = { COUNTDOWN: "6", CYCLE_PAUSE: "0.125", ROBOT_LEAD: "1.25" };
+  const ready = compileManualScore(track, manualBlocks, session);
+  assert.deepEqual(ready.issues, []);
+  assert.match(ready.source, /\[SESSION\]\nCOUNTDOWN=6\nCYCLE_PAUSE=0\.125\nROBOT_LEAD=1\.25\n\n\[AUDIO\]/u);
+  const invalid = compileManualScore(track, manualBlocks, { COUNTDOWN: "2.5", CYCLE_PAUSE: "", ROBOT_LEAD: "5.001" });
+  assert.equal(invalid.issues.length, 3);
+});
+
 test("manual export writes the header, numbered inline balls, and all four flavor fields", async () => {
   const { source, issues } = compileManualScore(track, manualBlocks);
   assert.deepEqual(issues, []);

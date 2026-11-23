@@ -86,7 +86,12 @@ time { font-variant-numeric: tabular-nums; color: #00867e; }
 .manual-issues { color: #8a2333; overflow-wrap: anywhere; }
 .once-control { display: flex; align-items: center; gap: .5rem; }
 .manual-editor fieldset, .manual-editor h3 { scroll-margin-top: 10rem; }
-.block-tray { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .45rem; }
+.manual-actions { display: flex; justify-content: space-between; align-items: flex-start; gap: .5rem; margin-top: .45rem; }
+.manual-actions > button { padding: .32rem .55rem; font-size: .85rem; text-align: left; }
+.block-tray { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .35rem; }
+.manual-instruction { margin: .35rem 0 0; font-size: .75rem; font-style: italic; }
+.session-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .5rem; }
+.session-row label { font-size: .86rem; }
 .block-tray button { cursor: grab; padding: .32rem .55rem; font-size: .85rem; }
 .manual-notice { color: #8a2333; margin: .35rem 0 0; font-size: .85rem; }
 .placed-block { position: relative; display: inline-flex; max-width: 100%; border-radius: .6rem; }

@@ -1,5 +1,7 @@
 # SpinPhony continuation
 
+- **Editor follow-up** · The sticky transport includes Add and the block tray. Cue-map selection brings both fixed-height lists to the selected timestamp. Manual SESSION controls above the live preview default to 4, 1 and 0 and validate against MSYNC v1.
+
 - **Music and MSYNC Editor revision** · Music owns the shared audio picker and Training Library. MSYNC Editor offers CDRILLS, FLAVOR, IDLE and STOP. CDRILLS load level-specific built-in patterns at the selected BALL entry and export editable INLINE definitions. The earlier NDRILL workflow is superseded.
 
 - **Built-in NDRILLS** · The manual picker uses a read-only snapshot of the 34 Nova Prime built-in drills and their three levels. Manual exports include the requested SESSION defaults. Auto Generate is labeled experimental.

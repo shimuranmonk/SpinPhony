@@ -1,24 +1,35 @@
 import { useEffect, useRef, useState } from "react";
 import { timestamp } from "./generator.js";
 import { nativeDrills } from "./nativeDrills.js";
-import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, flavorFields, initialBall, loadBuiltInBalls, maxBalls } from "./manualScore.js";
-import type { BallField, Block, BlockKind } from "./manualScore.js";
+import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, flavorFields, initialBall, loadBuiltInBalls, maxBalls, sessionFields } from "./manualScore.js";
+import type { BallField, Block, BlockKind, SessionField, SessionSettings } from "./manualScore.js";
 import type { Track } from "./rhythm.js";
 
 type Props = {
   file: File; track: Track;
   blocks: Block[]; onChange: (blocks: Block[]) => void; onDownload: (source: string) => void;
+  session: SessionSettings; onSessionChange: (session: SessionSettings) => void;
 };
 
+function showCurrentRow(list: HTMLUListElement | null) {
+  const row = list?.querySelector('[aria-current="step"]');
+  if (!list || !row) return;
+  const bounds = list.getBoundingClientRect();
+  const item = row.getBoundingClientRect();
+  if (item.top < bounds.top) list.scrollTop += item.top - bounds.top;
+  else if (item.bottom > bounds.bottom) list.scrollTop += item.bottom - bounds.bottom;
+}
 
-
-export function ManualEditor({ file, track, blocks, onChange, onDownload }: Props) {
+export function ManualEditor({ file, track, blocks, onChange, onDownload, session, onSessionChange }: Props) {
   const [url, setUrl] = useState("");
   const [kind, setKind] = useState<BlockKind>("CDRILL");
   const [selected, setSelected] = useState<number>();
   const [playhead, setPlayhead] = useState(0);
   const [editNotice, setEditNotice] = useState("");
   const audio = useRef<HTMLAudioElement>(null);
+  const markersList = useRef<HTMLUListElement>(null);
+  const blocksList = useRef<HTMLUListElement>(null);
+  const [cueJump, setCueJump] = useState(0);
   useEffect(() => {
     const next = URL.createObjectURL(file);
     setUrl(next);
@@ -26,9 +37,14 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
   }, [file]);
   const block = blocks.find(item => item.id === selected);
   const sorted = [...blocks].sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
-  const currentMarker = track.markers.reduce((current, marker, index) => marker.timeMs <= playhead ? index : current, -1);
-  const currentBlock = sorted.filter(item => item.timeMs <= playhead).at(-1);
-  const { source, issues } = compileManualScore(track, blocks);
+  const markers = [...track.markers, { timeMs: track.durationMs, kind: "end" }];
+  const currentMarker = markers.reduce((current, marker, index) => marker.timeMs <= playhead ? index : current, -1);
+  const latest = sorted.filter(item => item.timeMs <= playhead).at(-1);
+  const currentBlock = latest && block?.timeMs === latest.timeMs ? block : latest;
+  const { source, issues } = compileManualScore(track, blocks, session);
+
+  useEffect(() => { showCurrentRow(markersList.current); }, [currentMarker, cueJump]);
+  useEffect(() => { showCurrentRow(blocksList.current); }, [currentBlock?.id, cueJump]);
 
   function drillTimeTaken(type: BlockKind, timeMs: number, except?: number) {
     return type === "CDRILL" && blocks.some(item => item.id !== except && item.kind === "CDRILL" && item.timeMs === timeMs);
@@ -102,24 +118,26 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
           return <button type="button" key={item.id} data-block={item.kind}
             className={isMarker ? "cue-pin" : "cue-span"} title={label} aria-label={label}
             style={{ left: percent(item.timeMs) + "%", width: isMarker ? undefined : percent(end - item.timeMs) + "%" }}
-            onClick={() => { seek(item.timeMs); setSelected(item.id); }}>
+            onClick={() => { seek(item.timeMs); setSelected(item.id); setCueJump(value => value + 1); }}>
             {!isMarker && blockLabel(item)}
           </button>;
         })}
         <span className="cue-playhead" aria-hidden="true" style={{ left: percent(playhead) + "%" }} />
       </div>
-      <div className="block-tray" aria-label="Available blocks">
-        {blockKinds.map(type => <button type="button" key={type} data-block={type} draggable aria-pressed={kind === type}
-          onDragStart={event => event.dataTransfer.setData("application/x-spinphony-block", type)}
-          onClick={() => setKind(type)}>{type === "CDRILL" ? type + "S" : type}</button>)}
+      <div className="manual-actions">
+        <button type="button" onClick={() => add(kind, playhead)}>Add {kind} at {timestamp(playhead)}</button>
+        <div className="block-tray" aria-label="Available blocks">
+          {blockKinds.map(type => <button type="button" key={type} data-block={type} draggable aria-pressed={kind === type}
+            onDragStart={event => event.dataTransfer.setData("application/x-spinphony-block", type)}
+            onClick={() => setKind(type)}>{type === "CDRILL" ? type + "S" : type}</button>)}
+        </div>
       </div>
+      <p className="hint manual-instruction">Drag a block to a marker, or select a block type and use Add. Click a placed block to edit it.</p>
       {editNotice && <p className="manual-notice" role="status">{editNotice}</p>}
     </div>
-    <p className="hint">Drag a block to a marker, or select a block type and use Add. Click an added block to edit it.</p>
-    <button type="button" onClick={() => add(kind, playhead)}>Add {kind} at {timestamp(playhead)}</button>
     <div className="manual-panels">
-      <div><h3>Music markers</h3><ul className="event-list">
-        {[...track.markers, { timeMs: track.durationMs, kind: "end" }].map((marker, i) =>
+      <div><h3>Music markers</h3><ul className="event-list" ref={markersList} aria-label="Music markers">
+        {markers.map((marker, i) =>
           <li key={i} aria-current={i === currentMarker ? "step" : undefined}
             onDragOver={event => {
               if (event.dataTransfer.types.includes("application/x-spinphony-block")) event.preventDefault();
@@ -136,7 +154,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
             {sorted.filter(item => item.timeMs === marker.timeMs).map(placedBlock)}
           </li>)}
       </ul></div>
-      <div><h3>Your blocks</h3><ul className="event-list">
+      <div><h3>Your blocks</h3><ul className="event-list" ref={blocksList} aria-label="Your blocks">
         {sorted.map(item => <li key={item.id} aria-current={currentBlock?.id === item.id ? "step" : undefined}>
           <button type="button" className="manual-link" onClick={() => seek(item.timeMs)}>{timestamp(item.timeMs)}</button>
           {placedBlock(item)}
@@ -215,6 +233,18 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
       </label>}
       <button type="button" onClick={() => remove(block.id)}>Remove block</button>
     </fieldset>}
+    <fieldset>
+      <legend>SESSION</legend>
+      <div className="session-row">
+        {(Object.keys(sessionFields) as SessionField[]).map(key => {
+          const { label, max, step } = sessionFields[key];
+          return <label key={key}>{label} (s)
+            <input type="number" min={0} max={max} step={step} value={session[key]}
+              onChange={event => onSessionChange({ ...session, [key]: event.target.value })} />
+          </label>;
+        })}
+      </div>
+    </fieldset>
     <h3>Live MSYNC Preview</h3>
     <textarea className="live-msync" aria-label="Live MSYNC Preview" readOnly value={source} spellCheck={false} />
     {issues.length > 0 && <ul className="manual-issues" role="status">{issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>}
