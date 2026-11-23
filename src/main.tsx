@@ -2,8 +2,9 @@ import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { drills, starterDrills } from "./catalog.js";
 import type { Drill } from "./catalog.js";
-import { exportTimeline, generate, timestamp } from "./generator.js";
+import { exportTimeline, feedRate, timestamp } from "./generator.js";
 import type { Profile } from "./generator.js";
+import { readTimeline, suggestTimeline } from "./score.js";
 import { TimelinePreview } from "./TimelinePreview.js";
 import { analyzeFile } from "./rhythm.js";
 import type { Track } from "./rhythm.js";
@@ -15,33 +16,29 @@ function App() {
   const [track, setTrack] = useState<Track>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [bpm, setBpm] = useState("");
-  const [offset, setOffset] = useState("0");
   const [selected, setSelected] = useState<Drill[]>(starterDrills);
   const [drillQuery, setDrillQuery] = useState("");
   const [drillSource, setDrillSource] = useState("");
   const [profile, setProfile] = useState<Profile>({
-    pace: "steady", handedness: "right", workBeats: 16, recoveryBeats: 4,
+    pace: "steady", handedness: "right",
   });
-  const [result, setResult] = useState<ReturnType<typeof generate>>();
+  const [score, setScore] = useState<string>();
   const request = useRef(0);
 
   async function load(file: File | undefined) {
     const id = ++request.current;
     setFile(file);
     setTrack(undefined);
-    setResult(undefined);
+    setScore(undefined);
     setError("");
-    setBpm("");
-    setOffset("0");
+
     setBusy(Boolean(file));
     if (!file) return;
     try {
       const analyzed = await analyzeFile(file);
       if (id !== request.current) return;
       setTrack(analyzed);
-      setBpm(analyzed.rhythm?.bpm.toString() ?? "");
-      setOffset(String(analyzed.rhythm?.firstBeatMs ?? 0));
+
     } catch (failure) {
       if (id === request.current) setError(failure instanceof Error ? failure.message : String(failure));
     } finally {
@@ -50,7 +47,7 @@ function App() {
   }
 
   function configure<K extends keyof Profile>(key: K, value: Profile[K]) {
-    setResult(undefined);
+    setScore(undefined);
     setProfile(previous => ({ ...previous, [key]: value }));
   }
 
@@ -66,13 +63,18 @@ function App() {
 
   let timelineError = "";
   let source = "";
+  let musicLines: ReturnType<typeof readTimeline>["lines"] = [];
+  const feedBpm = track ? feedRate(track, profile) : 60;
   const query = drillQuery.trim().toLowerCase();
   const visibleDrills = drills.filter(drill =>
     (!drillSource || drill.category === drillSource)
     && (drill.name + " " + drill.description).toLowerCase().includes(query));
-  if (track && result) {
+  if (track && score !== undefined) {
     try {
-      source = exportTimeline(track, result.cues, profile, result.feedBpm);
+      const timeline = readTimeline(score, track.durationMs, selected, feedBpm);
+      musicLines = timeline.lines;
+      if (timeline.cues.length > 1) source = exportTimeline(track, timeline.cues, profile, feedBpm);
+      else timelineError = "Assign a drill to a hit or section to enable download.";
     } catch (failure) {
       timelineError = failure instanceof Error ? failure.message : String(failure);
     }
@@ -105,7 +107,7 @@ function App() {
         if (!track) return;
         setError("");
         try {
-          setResult(generate(track, { bpm: Number(bpm), firstBeatMs: Number(offset) }, selected, profile));
+          setScore(suggestTimeline(track, selected));
           setTab("preview");
           document.getElementById("preview-tab")?.focus();
         } catch (failure) {
@@ -119,11 +121,9 @@ function App() {
           <div role="status">
             {busy && <p>Analyzing audio…</p>}
             {track && <p>{track.filename} · {timestamp(track.durationMs)}
-              {track.rhythm ? " · Timing estimated. Adjust if needed." : " · No steady beat detected. Enter the BPM manually."}</p>}
-          </div>
-          <div className="fields">
-            <label>Tempo (BPM)<input required type="number" min="40" max="180" step="0.1" value={bpm} disabled={!track} onChange={event => { setBpm(event.target.value); setResult(undefined); }} /></label>
-            <label>First beat (ms)<input required type="number" min="0" step="1" value={offset} disabled={!track} onChange={event => { setOffset(event.target.value); setResult(undefined); }} /></label>
+              {" · " + track.markers.filter(marker => marker.kind === "hit").length + " hits"}
+              {" · " + track.markers.filter(marker => marker.kind === "section").length + " sections"}
+              {track.rhythm ? " · About " + track.rhythm.bpm + " BPM" : ""}</p>}
           </div>
         </section>
         <section>
@@ -142,7 +142,7 @@ function App() {
             <div className="drill" key={drill.id}>
               <label>
                 <input type="checkbox" checked={selected.includes(drill)} onChange={event => {
-                  setResult(undefined);
+                  setScore(undefined);
                   const checked = event.target.checked;
                   setSelected(previous => [...starterDrills, ...drills.filter(item => !starterDrills.includes(item))]
                     .filter(item => item === drill ? checked : previous.includes(item)));
@@ -159,18 +159,16 @@ function App() {
           <div className="fields">
             <label>Pace<select value={profile.pace} onChange={event => configure("pace", event.target.value as Profile["pace"])}><option value="steady">Steady</option><option value="active">Active</option></select></label>
             <label>Racket hand<select value={profile.handedness} onChange={event => configure("handedness", event.target.value as Profile["handedness"])}><option value="right">Right</option><option value="left">Left</option></select></label>
-            <label>Work (beats)<select value={profile.workBeats} onChange={event => configure("workBeats", Number(event.target.value))}>{[8, 16, 32].map(value => <option key={value}>{value}</option>)}</select></label>
-            <label>Recovery (beats)<select value={profile.recoveryBeats} onChange={event => configure("recoveryBeats", Number(event.target.value))}>{[0, 4, 8].map(value => <option key={value}>{value}</option>)}</select></label>
           </div>
         </section>
         {error && <p role="alert">{error}</p>}
         <button disabled={!track || busy} type="submit">Generate timeline</button>
       </form>
       <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
-        {tab === "preview" && (result && file ? (
-          <TimelinePreview file={file} cues={result.cues} drills={selected} feedBpm={result.feedBpm}
+        {tab === "preview" && (score !== undefined && file ? (
+          <TimelinePreview file={file} text={score} lines={musicLines} drills={selected} feedBpm={feedBpm}
             validationError={timelineError} canDownload={Boolean(source)} onDownload={download}
-            onEdit={cues => setResult({ ...result, cues })} />
+            onEdit={setScore} />
         ) : <section><p>Generate a timeline in Setup to preview it here.</p></section>)}
       </div>
     </main>

@@ -19,3 +19,5 @@ The beat-detection follow-up adds correlation of repeated onset patterns and dis
 The training-library follow-up adds 37 manual-derived patterns and five coaching drills, with source filtering and an unchanged three-drill starter selection. Review the linked manual coverage and distinguish inline feed approximations from calibrated presets.
 
 The audio-preview follow-up preserves Setup inputs across tab switches and stops playback when leaving Preview or editing the timeline. Comments are optional per cue. Automatic drill names and descriptions are exported as full-line MSYNC comments. Recover the exact approved tagline before updating the header.
+
+The music-led score now controls marker timing and actions. Section labels are editable. Assigned sections reserve their span for their own drill repeats, so their interior hit lines remain visible while the section takes over their actions. Verify detection against annotated tracks before claiming verse, chorus or drop recognition.

@@ -1,3 +1,6 @@
+import { detectMusicMarkers } from "./music.js";
+import type { MusicMarker } from "./music.js";
+
 const hopSeconds = 0.01;
 const minDuration = 8;
 const maxDuration = 360;
@@ -9,6 +12,7 @@ export type Track = {
   durationMs: number;
   sha256: string;
   rhythm: Rhythm | null;
+  markers: MusicMarker[];
 };
 
 export function estimateRhythm(channels: Float32Array[], sampleRate: number): Rhythm | null {
@@ -139,6 +143,7 @@ export async function analyzeFile(file: File): Promise<Track> {
       sha256,
       durationMs: Math.round(audio.duration * 1000),
       rhythm: estimateRhythm(channels, audio.sampleRate),
+      markers: detectMusicMarkers(channels, audio.sampleRate),
     };
   } finally {
     await context.close();

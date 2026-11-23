@@ -1,28 +1,29 @@
 import { useEffect, useRef, useState } from "react";
 import type { Drill } from "./catalog.js";
-import { timestamp } from "./generator.js";
-import type { Cue } from "./generator.js";
 
 type Props = {
   file: File;
-  cues: Cue[];
+  text: string;
+  lines: { timeMs: number; line: number }[];
   drills: Drill[];
   feedBpm: number;
   validationError: string;
   canDownload: boolean;
   onDownload: () => void;
-  onEdit: (cues: Cue[]) => void;
+  onEdit: (text: string) => void;
 };
 
-function activeCueAt(cues: Cue[], seconds: number) {
-  const next = cues.findIndex(cue => cue.timeMs > seconds * 1000);
-  return next === -1 ? cues.length - 1 : next - 1;
+function activeCueAt(lines: Props["lines"], seconds: number) {
+  const next = lines.findIndex(cue => cue.timeMs > seconds * 1000);
+  const index = next < 0 ? lines.length - 1 : next - 1;
+  return lines[index]?.line ?? -1;
 }
 
 export function TimelinePreview(props: Props) {
-  const { file, cues, drills, feedBpm, validationError, canDownload, onDownload, onEdit } = props;
+  const { file, text, lines, drills, feedBpm, validationError, canDownload, onDownload, onEdit } = props;
   const audio = useRef<HTMLAudioElement>(null);
-  const windowRef = useRef<HTMLOListElement>(null);
+  const windowRef = useRef<HTMLTextAreaElement>(null);
+  const [scrollTop, setScrollTop] = useState(0);
   const playbackRequest = useRef(0);
   const [playback, setPlayback] = useState<"stopped" | "playing" | "paused" | "ended">("stopped");
   const [active, setActive] = useState(-1);
@@ -48,21 +49,24 @@ export function TimelinePreview(props: Props) {
     function update() {
       const player = audio.current;
       if (!player) return;
-      setActive(activeCueAt(cues, player.currentTime));
+      setActive(activeCueAt(lines, player.currentTime));
       frame = requestAnimationFrame(update);
     }
     update();
     return () => cancelAnimationFrame(frame);
-  }, [cues, playback]);
+  }, [lines, playback]);
 
   useEffect(() => {
-    const list = windowRef.current;
-    const row = list?.children[active];
-    if (!list || !row || active < 0) return;
-    const bounds = list.getBoundingClientRect();
-    const cue = row.getBoundingClientRect();
-    if (cue.top < bounds.top) list.scrollTop += cue.top - bounds.top;
-    else if (cue.bottom > bounds.bottom) list.scrollTop += cue.bottom - bounds.bottom;
+    const editor = windowRef.current;
+    if (!editor || active < 0) return;
+    const styles = getComputedStyle(editor);
+    const height = parseFloat(styles.lineHeight);
+    const top = parseFloat(styles.paddingTop) + active * height;
+    if (top < editor.scrollTop) editor.scrollTop = top;
+    else if (top + height > editor.scrollTop + editor.clientHeight) {
+      editor.scrollTop = top + height - editor.clientHeight;
+    }
+    setScrollTop(editor.scrollTop);
   }, [active]);
 
   function stop() {
@@ -97,59 +101,46 @@ export function TimelinePreview(props: Props) {
     playbackRequest.current++;
     const player = audio.current;
     player?.pause();
-    if (player) setActive(activeCueAt(cues, player.currentTime));
+    if (player) setActive(activeCueAt(lines, player.currentTime));
     setPlayback("paused");
-  }
-
-  function updateCue(index: number, changes: { timeMs?: number; drill?: Drill; note?: string }) {
-    if (playback !== "stopped") stop();
-    onEdit(cues.map((cue, position) => position === index ? { ...cue, ...changes } : cue));
   }
 
   return (
     <section className="result" aria-labelledby="timeline">
       <audio ref={audio} onEnded={() => {
         setPlayback("ended");
-        setActive(cues.length - 1);
+        setActive(lines.at(-1)?.line ?? -1);
       }} />
       <div className="result-header">
-        <div><h2 id="timeline">Timeline</h2><p>{cues.length} cues · {feedBpm} balls/min</p></div>
+        <div><h2 id="timeline">Timeline</h2><p>{lines.length} markers · {feedBpm} balls/min</p></div>
         <button disabled={!canDownload} onClick={onDownload}>Download .msync</button>
       </div>
-      <p className="hint">Cue times are in milliseconds from the start of the track.</p>
+      <p id="timeline-help" className="hint">
+        Edit one marker per line. Format: <code>time | HIT or SECTION | drill name or - | comment</code>.
+        Add <code>x5</code> after a section drill name to play five cycles before the next section.
+        A section drill takes over from individual hit actions within that section.
+      </p>
+      <details><summary>Selected drill names</summary><ul>{drills.map(drill => <li key={drill.id}>{drill.name}</li>)}</ul></details>
       {validationError && <p role="alert">{validationError}</p>}
       {playbackError && <p role="alert">{playbackError}</p>}
       <div className="timeline-window">
         <div className="transport" role="group" aria-label="Playback controls">
-          <button disabled={!canDownload || playback === "playing" || playback === "paused"} onClick={() => void play(true)}>Play</button>
+          <button disabled={!lines.length || playback === "playing" || playback === "paused"} onClick={() => void play(true)}>Play</button>
           <button disabled={playback !== "playing"} onClick={pause}>Pause</button>
           <button disabled={playback !== "paused"} onClick={() => void play(false)}>Resume</button>
           <button disabled={playback === "stopped"} onClick={stop}>Stop</button>
         </div>
-        <ol ref={windowRef} tabIndex={0} aria-label="Editable timeline cues">
-          {cues.map((cue, index) => (
-            <li key={index} aria-current={active === index ? "step" : undefined}>
-              {cue.command === "STOP" ? <><time>{timestamp(cue.timeMs)}</time><span>Stop</span></> : (
-                <>
-                  <input aria-label={`Cue ${index + 1} time (ms)`} type="number" min="0" step="1"
-                    value={Number.isNaN(cue.timeMs) ? "" : cue.timeMs}
-                    onChange={event => updateCue(index, { timeMs: event.target.valueAsNumber })} />
-                  {cue.command === "INLINE" ? (
-                    <select aria-label={`Cue ${index + 1} drill`} value={cue.drill.id} onChange={event => {
-                      const drill = drills.find(item => item.id === event.target.value);
-                      if (drill) updateCue(index, { drill });
-                    }}>
-                      {drills.map(drill => <option key={drill.id} value={drill.id}>{drill.name}</option>)}
-                    </select>
-                  ) : <span>Recovery</span>}
-                </>
-              )}
-              <input className="cue-note" aria-label={`Cue ${index + 1} comment`} type="text"
-                maxLength={200} placeholder="Optional comment" value={cue.note ?? ""}
-                onChange={event => updateCue(index, { note: event.target.value })} />
-            </li>
-          ))}
-        </ol>
+        <div className="score-editor">
+          {active >= 0 && <div className="playing-line" aria-hidden="true"
+            style={{ top: `calc(var(--score-padding) + ${active} * var(--score-line) - ${scrollTop}px)` }} />}
+          <textarea ref={windowRef} aria-label="Editable timeline" aria-describedby="timeline-help"
+            aria-invalid={Boolean(validationError)} wrap="off" spellCheck={false} value={text}
+            onScroll={event => setScrollTop(event.currentTarget.scrollTop)}
+            onChange={event => {
+              if (playback !== "stopped") stop();
+              onEdit(event.target.value);
+            }} />
+        </div>
       </div>
     </section>
   );
