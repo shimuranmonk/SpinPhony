@@ -1,5 +1,10 @@
 # SpinPhony testing
 
+## Customization revision (2026-11-24)
+
+- Production build and all 14 automated tests passed with the read-only MSYNC validator loaded. Coverage includes pasted NDRILL references, numbered CDRILL lines, all four FLAVOR fields, invalid drafts and export headers.
+- Chrome at 390 px verified a dragged CDRILL, five colored timeline indicators, the ten-ball cap, sticky audio on scroll, and a validator-accepted download byte-for-byte equal to the live text. No physical robot or controller-library tests were run.
+
 ## Complete Customization checkpoint (2026-11-23)
 
 - The editor worktree based on local Preview revision `b759606` passed the production build and all 14 automated tests with the MSYNC validator loaded from the read-only reference checkout. Coverage includes simultaneous Drill/Flavor, timed Rest, bare Idle, early Stop, illegal coupled ball parameters, overlapping pauses and export validation.

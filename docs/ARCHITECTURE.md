@@ -2,7 +2,7 @@
 
 ## Complete Customization
 
-The manual editor consumes detections as timing suggestions and stores its own authored blocks. It does not call the automatic planner. It compiles library-backed and custom presets to inline drill definitions, Flavor to a supported field override, Rest to a timed cue, Idle to a bare cue with an editor-only timing reservation, and Stop to an explicit session end. Its export checks cue order, activations, pause overlaps and frozen ball ranges. Device calibration and built-in identifiers require separate verification.
+The manual editor consumes detections as timing suggestions and stores its own authored blocks independently of automatic generation. It compiles NDRILL to a controller ID and level in DRILLS, CDRILL to a numbered INLINE sequence, FLAVOR to a four-field override, IDLE to a bare cue with an editor-only timing reservation, and STOP to an explicit session end. The live preview and export use the same compiled text. Export checks cue order, activations, overlaps and frozen ball ranges. Controller catalog resolution and device calibration require separate verification.
 
 ## Browser generator
 

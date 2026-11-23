@@ -27,6 +27,19 @@ export function validateTrack(track: Track) {
   }
 }
 
+export const tagline = "Soundtrack of a Loop";
+
+export function msyncHeader(track: Track, mode: "Auto Generate" | "Complete Customization") {
+  const title = track.filename.replace(/\.[^.]+$/, "");
+  return [
+    "# " + title + " - SpinPhony MSYNC v1",
+    "# " + tagline,
+    "# Source audio: " + track.filename,
+    "# Duration: " + timestamp(track.durationMs),
+    "# Created in " + mode,
+  ].join("\n");
+}
+
 export function feedRate(track: Track, profile: Profile) {
   const cap = profile.pace === "steady" ? 60 : 90;
   const tempo = track.rhythm?.bpm ?? cap;
@@ -77,7 +90,7 @@ export function exportTimeline(track: Track, cues: Cue[], profile: Profile, bpm:
     return ["# " + label + (note ? " — " + note : ""), timestamp(cue.timeMs) + " " + command];
   });
   const source = [
-    "MSYNC_VERSION=1",
+    msyncHeader(track, "Auto Generate") + "\n\nMSYNC_VERSION=1",
     ["[AUDIO]", "FILENAME=" + filename, "SHA256=" + sha256, "DURATION=" + timestamp(durationMs)].join("\n"),
     ...blocks,
     ["[CUES]", ...lines].join("\n"),

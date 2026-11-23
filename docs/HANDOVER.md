@@ -1,6 +1,12 @@
 # SpinPhony handover
 
-## Complete Customization
+## Customization revision (2026-11-24)
+
+The latest UI presents **SpinPhony - Soundtrack of a Loop**, an MSYNC conductor for the Nova Prime controller. NDRILLS export pasted controller references at level 1–3. CDRILLS export INLINE definitions with up to ten sequential BALL entries. FLAVOR edits speed, feed, spin and height together. IDLE reserves timeline space and exports bare IDLE. STOP ends the authored score. The live draft and download share one serializer. Missing or invalid cues show a draft comment and prevent export. The colored strip shows planned spans and markers rather than measured robot activity.
+
+The block formats and live preview are verified in the browser and against the frozen file validator. The controller still needs to resolve NDRILL IDs from its own catalog. Exact native single-cycle length and physical robot constraints remain unverified. The coaching planner remains a separate development task.
+
+## Initial Complete Customization checkpoint (2026-11-23)
 
 The maintainer approved a separate block editor alongside Auto Generate. Musical markers are drop targets and timing references. The manual score stays separate from automatic generation and persists across tab switches until the audio file is replaced. A block can be added by drag-and-drop or by choosing a block type and pressing Add. Click a placed block to edit its time, parameters or duration. Feed presets currently set 35, 45 or 60 balls/minute as editable UI starting points. These are file-level choices awaiting robot calibration. Idle duration reserves timeline space and exports as a bare IDLE cue. Rest duration exports as REST. Stop ends the authored score, including before audio end.
 

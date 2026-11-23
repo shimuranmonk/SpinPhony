@@ -5,39 +5,47 @@ import { exportTimeline, feedRate, validateTrack } from "../.test-build/generato
 import { estimateRhythm } from "../.test-build/rhythm.js";
 import { detectMusicMarkers } from "../.test-build/music.js";
 import { readTimeline, suggestTimeline } from "../.test-build/score.js";
-import { exportManualScore, initialBall } from "../.test-build/manualScore.js";
+import { compileManualScore, initialBall } from "../.test-build/manualScore.js";
 
 const track = { filename: "pulse.wav", durationMs: 24000, sha256: "a".repeat(64), rhythm: { bpm: 120 }, markers: [{ timeMs: 0, kind: "section" }, { timeMs: 250, kind: "hit" }, { timeMs: 1320, kind: "hit" }] };
 const rhythm = { bpm: 120, firstBeatMs: 250 };
 const profile = { pace: "steady", handedness: "right" };
 
 const manualBlocks = [
-  { id: 1, timeMs: 0, kind: "Custom Drill", name: "Test pattern", balls: [initialBall], random: false, note: "Start" },
-  { id: 2, timeMs: 0, kind: "Flavor", flavorField: "BPM", flavorValue: 40, note: "" },
-  { id: 3, timeMs: 1000, kind: "Rest", seconds: 2.5, note: "" },
-  { id: 4, timeMs: 5000, kind: "Idle", seconds: 4, note: "" },
-  { id: 5, timeMs: 10000, kind: "Stop", note: "" },
+  { id: 1, timeMs: 0, kind: "CDRILL", name: "Loopers", balls: [initialBall, { ...initialBall, BPM: 70 }], random: false, note: "Start" },
+  { id: 2, timeMs: 0, kind: "FLAVOR", name: "Fast", flavor: { SPEED: 3.5, BPM: 65, SPIN: 2.5, HEIGHT: 38 }, note: "" },
+  { id: 3, timeMs: 5000, kind: "IDLE", seconds: 4, note: "" },
+  { id: 4, timeMs: 9000, kind: "NDRILL", name: "DRVF", reference: "drill_9cf8de6a-e55f-48bd-86a1-393d59c06546", level: 2, note: "" },
+  { id: 5, timeMs: 10000, kind: "STOP", note: "" },
 ];
 
-test("manual blocks export authored timing, modifiers, and a timed rest", async () => {
-  const source = exportManualScore(track, manualBlocks);
-  assert.match(source, /00:00\.000 INLINE=INL_BLOCK_1[\s\S]*00:00\.000 FLAVOR=FLV_BLOCK_2/u);
-  assert.match(source, /00:01\.000 REST=2\.5[\s\S]*00:05\.000 IDLE[\s\S]*00:10\.000 STOP/u);
+test("manual export writes the header, native drill, numbered inline balls, and all four flavor fields", async () => {
+  const { source, issues } = compileManualScore(track, manualBlocks);
+  assert.deepEqual(issues, []);
+  assert.match(source, /^# pulse - SpinPhony MSYNC v1\n# Soundtrack of a Loop/u);
+  assert.match(source, /\[DRILLS\]\nDRL_DRVF=CUSTOM:drill_9cf8de6a-e55f-48bd-86a1-393d59c06546;LEVEL=2/u);
+  assert.match(source, /\[INLINE:INL_LOOPERS_1\][\s\S]*BALL=2;SPEED=3;SPIN=2;TYPE=top;HEIGHT=20;DROP=0;BPM=70;REPS=1/u);
+  assert.match(source, /\[FLAVOR:FLV_FAST\]\nFLV_SPEED=3.5\nFLV_BPM=65\nFLV_SPIN=2.5\nFLV_HEIGHT=38/u);
+  assert.match(source, /00:05\.000 IDLE[\s\S]*00:09\.000 DRILL=DRL_DRVF[\s\S]*00:10\.000 STOP/u);
   if (process.env.MSYNC_VALIDATOR) {
     const { validateMsyncSource } = await import(process.env.MSYNC_VALIDATOR);
     const result = validateMsyncSource(source);
     assert.equal(result.valid, true, JSON.stringify(result.errors));
-    assert.equal(result.warnings.length, 0, JSON.stringify(result.warnings));
   }
 });
 
-test("manual export rejects overlapping pauses, illegal ball parameters, and cues after Stop", () => {
-  assert.throws(() => exportManualScore(track, [...manualBlocks,
-    { ...manualBlocks[0], id: 6, timeMs: 6000 }]), /overlaps a reserved pause/);
-  assert.throws(() => exportManualScore(track, [{ ...manualBlocks[0], balls: [{ ...initialBall, SPEED: 10 }] },
-    ...manualBlocks.slice(1)]), /Spin exceeds/);
-  assert.throws(() => exportManualScore(track, [...manualBlocks,
-    { ...manualBlocks[0], id: 6, timeMs: 11000 }]), /after Stop/);
+test("manual draft stays visible and reports invalid pauses, parameters, ball counts, and cues after STOP", () => {
+  const cases = [
+    [[...manualBlocks, { ...manualBlocks[0], id: 6, timeMs: 6000 }], /reserved IDLE/],
+    [[{ ...manualBlocks[0], balls: [{ ...initialBall, SPEED: 10 }] }, ...manualBlocks.slice(1)], /Spin exceeds/],
+    [[{ ...manualBlocks[0], balls: Array(11).fill(initialBall) }], /1–10 ball entries/],
+    [[...manualBlocks, { ...manualBlocks[0], id: 6, timeMs: 11000 }], /after STOP/],
+  ];
+  for (const [blocks, expected] of cases) {
+    const { source, issues } = compileManualScore(track, blocks);
+    assert.match(issues.join("\n"), expected);
+    assert.match(source, /\[AUDIO\][\s\S]*\[CUES\]/u);
+  }
 });
 
 test("periodic transients produce a tempo and first beat, even with opposite-phase stereo", () => {

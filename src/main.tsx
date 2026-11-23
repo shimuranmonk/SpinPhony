@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { drills, starterDrills } from "./catalog.js";
 import type { Drill } from "./catalog.js";
-import { exportTimeline, feedRate, timestamp } from "./generator.js";
+import { exportTimeline, feedRate, tagline, timestamp } from "./generator.js";
 import type { Profile } from "./generator.js";
 import { readTimeline, suggestTimeline } from "./score.js";
 import { describeMusicEvents } from "./musicEvents.js";
@@ -88,9 +88,8 @@ function App() {
   return (
     <main>
       <header>
-        <p className="brand">SpinPhony</p>
-        <h1>MSYNC Generator</h1>
-        <p>Turn a local music track into a timed table tennis practice session.</p>
+        <h1>SpinPhony - {tagline}</h1>
+        <p>An MSYNC conductor for the Nova Prime controller.</p>
       </header>
       <div className="tabs" role="tablist" aria-label="SpinPhony" onKeyDown={event => {
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -180,7 +179,7 @@ function App() {
       </div>
       {tab === "manual" && <div id="manual-panel" role="tabpanel" aria-labelledby="manual-tab">
         {file && track
-          ? <ManualEditor file={file} track={track} left={profile.handedness === "left"}
+          ? <ManualEditor file={file} track={track}
               blocks={blocks} onChange={setBlocks} onDownload={download} />
           : <section><label>Audio file<input type="file" accept="audio/*,.wav,.mp3,.m4a,.ogg,.flac"
               onChange={event => void load(event.target.files?.[0])} /></label>

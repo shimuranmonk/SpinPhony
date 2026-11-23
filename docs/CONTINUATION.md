@@ -1,5 +1,8 @@
 # SpinPhony continuation
 
+- **Customization revision (2026-11-24)** · [PR #10](https://github.com/shimuranmonk/SpinPhony/pull/10) now carries NDRILLS, CDRILLS, FLAVOR, IDLE and STOP, a sticky player, a colored cue strip and live MSYNC text. Both download paths include the temporary tagline. REST and ADRILLS are outside the current manual editor.
+- **Next check** · Verify pasted NDRILL identifiers against the target controller's catalog, then incorporate the maintainer-supplied robot-specific limits. File-level validation and Chrome export checks are recorded in [testing](TESTING.md).
+
 - **Complete Customization (2026-11-23)** · The separate manual tab supports dragging or adding editable blocks, audio preview, and validated MSYNC export. The coaching specification in [PR #9](https://github.com/shimuranmonk/SpinPhony/pull/9) applies to automatic generation only.
 - **Next action for the manual editor** · Review the editor branch, then verify hardware bounds and built-in drill IDs once the maintainer supplies device data. Current drill exports use inline definitions and frozen file limits. See [handover](HANDOVER.md).
 
