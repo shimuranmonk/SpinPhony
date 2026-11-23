@@ -7,6 +7,7 @@ import type { Profile } from "./generator.js";
 import { readTimeline, suggestTimeline } from "./score.js";
 import { describeMusicEvents } from "./musicEvents.js";
 import { TimelinePreview } from "./TimelinePreview.js";
+import { nativeDrills } from "./nativeDrills.js";
 import { ManualEditor } from "./ManualEditor.js";
 import type { Block } from "./manualScore.js";
 import { analyzeFile } from "./rhythm.js";
@@ -14,8 +15,8 @@ import type { Track } from "./rhythm.js";
 import "./style.css";
 
 function App() {
-  const tabs = ["setup", "preview", "manual"] as const;
-  const [tab, setTab] = useState<typeof tabs[number]>("setup");
+  const tabs = ["music", "manual", "setup", "preview"] as const;
+  const [tab, setTab] = useState<typeof tabs[number]>("music");
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [file, setFile] = useState<File>();
   const [track, setTrack] = useState<Track>();
@@ -95,7 +96,7 @@ function App() {
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
         event.preventDefault();
         const offset = event.key === "ArrowLeft" ? -1 : 1;
-        const next = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[2]
+        const next = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[tabs.length - 1]
           : tabs[(tabs.indexOf(tab) + offset + tabs.length) % tabs.length];
         setTab(next);
         document.getElementById(next + "-tab")?.focus();
@@ -103,22 +104,11 @@ function App() {
         {tabs.map(item => (
           <button key={item} id={item + "-tab"} role="tab" type="button" aria-selected={tab === item}
             aria-controls={item + "-panel"} tabIndex={tab === item ? 0 : -1} onClick={() => setTab(item)}>
-            {item === "setup" ? "Auto Generate (Experimental)" : item === "preview" ? "Preview" : "Complete Customization"}
+            {item === "setup" ? "Auto Generate (Experimental)" : item === "preview" ? "Preview" : item === "manual" ? "MSYNC Editor" : "Music"}
           </button>
         ))}
       </div>
-      <form id="setup-panel" role="tabpanel" aria-labelledby="setup-tab" hidden={tab !== "setup"} onSubmit={event => {
-        event.preventDefault();
-        if (!track) return;
-        setError("");
-        try {
-          setScore(suggestTimeline(track, selected));
-          setTab("preview");
-          document.getElementById("preview-tab")?.focus();
-        } catch (failure) {
-          setError(failure instanceof Error ? failure.message : String(failure));
-        }
-      }}>
+      <div id="music-panel" role="tabpanel" aria-labelledby="music-tab" hidden={tab !== "music"}>
         <section>
           <h2>Music</h2>
           <label>Audio file<input type="file" accept="audio/*,.wav,.mp3,.m4a,.ogg,.flac" onChange={event => void load(event.target.files?.[0])} /></label>
@@ -158,7 +148,25 @@ function App() {
             </div>
           ))}
           </div>
+          <details>
+            <summary>Nova built-in drills · {nativeDrills.length} patterns for CDRILLS</summary>
+            <ul>{nativeDrills.map(drill => <li key={drill.key}>{drill.name}</li>)}</ul>
+          </details>
         </section>
+        {error && tab === "music" && <p role="alert">{error}</p>}
+      </div>
+      <form id="setup-panel" role="tabpanel" aria-labelledby="setup-tab" hidden={tab !== "setup"} onSubmit={event => {
+        event.preventDefault();
+        if (!track) return;
+        setError("");
+        try {
+          setScore(suggestTimeline(track, selected));
+          setTab("preview");
+          document.getElementById("preview-tab")?.focus();
+        } catch (failure) {
+          setError(failure instanceof Error ? failure.message : String(failure));
+        }
+      }}>
         <section>
           <h2>Training profile</h2>
           <div className="fields">
@@ -167,6 +175,7 @@ function App() {
           </div>
         </section>
         {error && <p role="alert">{error}</p>}
+        {!track && <p>Choose an audio file in the Music tab to generate a timeline.</p>}
         <button disabled={!track || busy} type="submit">Generate timeline</button>
       </form>
       <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
@@ -175,16 +184,13 @@ function App() {
             events={describeMusicEvents(track, selected, timeline)} drills={selected} feedBpm={feedBpm}
             validationError={timelineError} canDownload={Boolean(source)} onDownload={() => download(source)}
             onEdit={setScore} />
-        ) : <section><p>Generate a timeline in Setup to preview it here.</p></section>)}
+        ) : <section><p>Generate a timeline in Auto Generate to preview it here.</p></section>)}
       </div>
       {tab === "manual" && <div id="manual-panel" role="tabpanel" aria-labelledby="manual-tab">
         {file && track
           ? <ManualEditor file={file} track={track}
               blocks={blocks} onChange={setBlocks} onDownload={download} />
-          : <section><label>Audio file<input type="file" accept="audio/*,.wav,.mp3,.m4a,.ogg,.flac"
-              onChange={event => void load(event.target.files?.[0])} /></label>
-              {busy && <p role="status">Analyzing audio…</p>}
-              {error && <p role="alert">{error}</p>}</section>}
+          : <section><p>{busy ? "Analyzing audio…" : "Choose an audio file in the Music tab to start editing."}</p></section>}
       </div>}
     </main>
   );

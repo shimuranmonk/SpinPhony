@@ -29,7 +29,7 @@ export function validateTrack(track: Track) {
 
 export const tagline = "Soundtrack of a Loop";
 
-export function msyncHeader(track: Track, mode: "Auto Generate" | "Complete Customization") {
+export function msyncHeader(track: Track, mode: "Auto Generate" | "MSYNC Editor") {
   const title = track.filename.replace(/\.[^.]+$/, "");
   return [
     "# " + title + " - SpinPhony MSYNC v1",

@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The Music tab and CDRILL pattern revision passed the production build and all 15 tests. Chrome verified loading two balls at BALL 1, adding BALL 3, loading two more balls there, retaining BALL 1 and BALL 2, and downloading validator-accepted INLINE output identical to the preview.
+
 - The built-in NDRILL follow-up passed the production build and all 15 automated tests. Chrome verified the Drive FH feed rate changes from 54 to 72 when switching from level 1 to 3, and the exported file matched the live preview and passed validation with Nova Prime’s catalog loaded. No hardware was operated.
 
 - Chrome at 390 px verified corner removal updates both the cue map and live MSYNC, a second drill at the same timestamp is blocked, and the block tray stays visible with playback controls. The resulting download matched the preview and passed the frozen validator.

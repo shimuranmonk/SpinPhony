@@ -5,8 +5,7 @@ import { exportTimeline, feedRate, validateTrack } from "../.test-build/generato
 import { estimateRhythm } from "../.test-build/rhythm.js";
 import { detectMusicMarkers } from "../.test-build/music.js";
 import { readTimeline, suggestTimeline } from "../.test-build/score.js";
-import { compileManualScore, initialBall } from "../.test-build/manualScore.js";
-import { nativeDrills } from "../.test-build/nativeDrills.js";
+import { compileManualScore, initialBall, loadBuiltInBalls } from "../.test-build/manualScore.js";
 
 const track = { filename: "pulse.wav", durationMs: 24000, sha256: "a".repeat(64), rhythm: { bpm: 120 }, markers: [{ timeMs: 0, kind: "section" }, { timeMs: 250, kind: "hit" }, { timeMs: 1320, kind: "hit" }] };
 const rhythm = { bpm: 120, firstBeatMs: 250 };
@@ -16,19 +15,17 @@ const manualBlocks = [
   { id: 1, timeMs: 0, kind: "CDRILL", name: "Loopers", balls: [initialBall, { ...initialBall, BPM: 70 }], random: false, note: "Start" },
   { id: 2, timeMs: 0, kind: "FLAVOR", name: "Fast", flavor: { SPEED: 3.5, BPM: 65, SPIN: 2.5, HEIGHT: 38 }, note: "" },
   { id: 3, timeMs: 5000, kind: "IDLE", seconds: 4, note: "" },
-  { id: 4, timeMs: 9000, kind: "NDRILL", name: "DRVF", reference: "drill_9cf8de6a-e55f-48bd-86a1-393d59c06546", level: 2, note: "" },
   { id: 5, timeMs: 10000, kind: "STOP", note: "" },
 ];
 
-test("manual export writes the header, native drill, numbered inline balls, and all four flavor fields", async () => {
+test("manual export writes the header, numbered inline balls, and all four flavor fields", async () => {
   const { source, issues } = compileManualScore(track, manualBlocks);
   assert.deepEqual(issues, []);
   assert.match(source, /^# pulse - SpinPhony MSYNC v1\n# Soundtrack of a Loop/u);
   assert.match(source, /\[SESSION\]\nCOUNTDOWN=4\nCYCLE_PAUSE=1\nROBOT_LEAD=0\n\n\[AUDIO\]/u);
-  assert.match(source, /\[DRILLS\]\nDRL_DRVF=CUSTOM:drill_9cf8de6a-e55f-48bd-86a1-393d59c06546;LEVEL=2/u);
   assert.match(source, /\[INLINE:INL_LOOPERS_1\][\s\S]*BALL=2;SPEED=3;SPIN=2;TYPE=top;HEIGHT=20;DROP=0;BPM=70;REPS=1/u);
   assert.match(source, /\[FLAVOR:FLV_FAST\]\nFLV_SPEED=3.5\nFLV_BPM=65\nFLV_SPIN=2.5\nFLV_HEIGHT=38/u);
-  assert.match(source, /00:05\.000 IDLE[\s\S]*00:09\.000 DRILL=DRL_DRVF[\s\S]*00:10\.000 STOP/u);
+  assert.match(source, /00:05\.000 IDLE[\s\S]*00:10\.000 STOP/u);
   if (process.env.MSYNC_VALIDATOR) {
     const { validateMsyncSource } = await import(process.env.MSYNC_VALIDATOR);
     const result = validateMsyncSource(source);
@@ -36,14 +33,17 @@ test("manual export writes the header, native drill, numbered inline balls, and 
   }
 });
 
-test("built-in NDRILL exports its controller key and requested catalog level", () => {
-  const drive = nativeDrills.find(drill => drill.key === "drive(f)");
-  assert.deepEqual(drive.levels.map(level => level[0].bpm), [54, 60, 72]);
-  const blocks = manualBlocks.map(block => block.kind === "NDRILL"
-    ? { ...block, builtinKey: drive.key, level: 3 } : block);
-  const { source, issues } = compileManualScore(track, blocks);
-  assert.deepEqual(issues, []);
-  assert.match(source, /DRL_DRVF=BUILTIN:drive\(f\);LEVEL=3/u);
+test("loading built-in patterns fills consecutive balls without changing the earlier entries", () => {
+  const first = loadBuiltInBalls([initialBall], 0, "drive(f)-drive(b)", 1);
+  assert.equal(first.length, 2);
+  assert.deepEqual(first.map(ball => ball.DROP), [5, -5]);
+  const second = loadBuiltInBalls([...first, initialBall], 2, "push(f)-drive(f)", 2);
+  assert.equal(second.length, 4);
+  assert.deepEqual(second.slice(0, 2), first);
+  assert.deepEqual(second.slice(2).map(ball => ball.TYPE), ["back", "top"]);
+  const existing = Array(10).fill(initialBall);
+  assert.throws(() => loadBuiltInBalls(existing, 9, "drive(f)-drive(b)", 1), /10-ball limit/);
+  assert.deepEqual(existing, Array(10).fill(initialBall));
 });
 
 test("manual draft stays visible and reports invalid pauses, parameters, ball counts, and cues after STOP", () => {

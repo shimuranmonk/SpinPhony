@@ -1,5 +1,7 @@
 # SpinPhony continuation
 
+- **Music and MSYNC Editor revision** · Music owns the shared audio picker and Training Library. MSYNC Editor offers CDRILLS, FLAVOR, IDLE and STOP. CDRILLS load level-specific built-in patterns at the selected BALL entry and export editable INLINE definitions. The earlier NDRILL workflow is superseded.
+
 - **Built-in NDRILLS** · The manual picker uses a read-only snapshot of the 34 Nova Prime built-in drills and their three levels. Manual exports include the requested SESSION defaults. Auto Generate is labeled experimental.
 
 - **Timeline follow-up** · [PR #10](https://github.com/shimuranmonk/SpinPhony/pull/10) adds corner removal and prevents multiple drill blocks at the same timestamp. The audio player, cue map and block tray stay together while scrolling. NDRILL ball values require controller catalog data.

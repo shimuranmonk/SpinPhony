@@ -9,19 +9,32 @@ export const ballFields = {
 export type BallField = keyof typeof ballFields;
 export type Ball = Record<BallField, number> & { TYPE: "top" | "back" };
 export const flavorFields = ["SPEED", "BPM", "SPIN", "HEIGHT"] as const;
-export const blockKinds = ["NDRILL", "CDRILL", "FLAVOR", "IDLE", "STOP"] as const;
+export const blockKinds = ["CDRILL", "FLAVOR", "IDLE", "STOP"] as const;
 export const maxBalls = 10;
 export type BlockKind = typeof blockKinds[number];
 export type Block = {
   id: number; timeMs: number; kind: BlockKind; note: string; name: string;
   balls: Ball[]; random: boolean; once: boolean; seconds: number;
-  reference: string; builtinKey?: string; level: number; flavor: Pick<Ball, typeof flavorFields[number]>;
+  flavor: Pick<Ball, typeof flavorFields[number]>;
 };
 export const initialBall: Ball = {
   SPEED: 3, SPIN: 2, TYPE: "top", HEIGHT: 20, DROP: 0, BPM: 35, REPS: 1,
 };
 
-export const blockOrder: Record<BlockKind, number> = { NDRILL: 0, CDRILL: 0, FLAVOR: 1, IDLE: 2, STOP: 3 };
+export function loadBuiltInBalls(balls: Ball[], start: number, key: string, level: number): Ball[] {
+  const source = nativeDrills.find(drill => drill.key === key)?.levels[level - 1];
+  if (!source?.length || start < 0 || start >= balls.length || !Number.isInteger(start)) {
+    throw new Error("Choose a built-in drill and level for this ball.");
+  }
+  if (start + source.length > maxBalls) throw new Error("This drill would exceed the 10-ball limit.");
+  const loaded = source.map(ball => ({
+    SPEED: ball.speed, SPIN: ball.spin, TYPE: ball.type === "back" ? "back" as const : "top" as const,
+    HEIGHT: ball.height, DROP: ball.drop, BPM: ball.bpm, REPS: ball.repetitions,
+  }));
+  return [...balls.slice(0, start), ...loaded, ...balls.slice(start + loaded.length)];
+}
+
+export const blockOrder: Record<BlockKind, number> = { CDRILL: 0, FLAVOR: 1, IDLE: 2, STOP: 3 };
 const clean = (text: string) => text.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/gu, " ").trim();
 const alias = (name: string, prefix: string) => name.trim().toUpperCase().replace(new RegExp("^" + prefix + "_"), "");
 const validAlias = /^[A-Z][A-Z0-9_]{0,35}$/;
@@ -47,7 +60,6 @@ function checkSpin(speed: number, spin: number) {
 export function compileManualScore(track: Track, blocks: Block[]) {
   validateTrack(track);
   const definitions = new Map<string, string>();
-  const native = new Map<string, string>();
   const cues: string[] = [];
   const issues: string[] = [];
   const sorted = [...blocks].sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
@@ -77,23 +89,7 @@ export function compileManualScore(track: Track, blocks: Block[]) {
       }
       if (timeMs < pausedUntil && kind !== "STOP") throw new Error("This block overlaps the reserved IDLE interval.");
       let command: string = kind;
-      if (kind === "NDRILL") {
-        const name = "DRL_" + alias(block.name, "DRL").replace(/\s+/g, "_");
-        if (!validAlias.test(name.slice(4))) throw new Error("Enter a drill alias starting with a letter and using up to 36 letters, numbers or underscores.");
-        const reference = block.reference.trim().replace(/^CUSTOM:/i, "");
-        if (block.builtinKey && !nativeDrills.some(drill => drill.key === block.builtinKey)) {
-          throw new Error("Choose a built-in drill from the catalog.");
-        }
-        if (!block.builtinKey && !/^(?:drill_[a-z0-9_-]{5,}|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(reference)) {
-          throw new Error("Paste the drill ID from the Nova Prime controller.");
-        }
-        if (![1, 2, 3].includes(block.level)) throw new Error("Select level 1, 2 or 3.");
-        const target = block.builtinKey ? "BUILTIN:" + block.builtinKey : "CUSTOM:" + reference;
-        define(native, name, name + "=" + target + ";LEVEL=" + block.level);
-        command = "DRILL=" + name + (block.once ? ";ONCE" : "");
-        active = block;
-        activated = true;
-      } else if (kind === "CDRILL") {
+      if (kind === "CDRILL") {
         const title = clean(block.name);
         if (!title || !block.balls.length || block.balls.length > maxBalls) throw new Error("Enter a name and 1–10 ball entries.");
         const suffix = title.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 25);
@@ -140,12 +136,11 @@ export function compileManualScore(track: Track, blocks: Block[]) {
       cues.push("# " + time + " · " + message);
     }
   }
-  if (!activated) issues.push("Add a valid NDRILL or CDRILL to enable MSYNC export.");
+  if (!activated) issues.push("Add a valid CDRILL to enable MSYNC export.");
   if (!stopped) issues.push("Add a STOP block where the session should end.");
-  const source = [msyncHeader(track, "Complete Customization") + "\n\nMSYNC_VERSION=1",
+  const source = [msyncHeader(track, "MSYNC Editor") + "\n\nMSYNC_VERSION=1",
     "[SESSION]\nCOUNTDOWN=4\nCYCLE_PAUSE=1\nROBOT_LEAD=0",
     ["[AUDIO]", "FILENAME=" + track.filename, "SHA256=" + track.sha256, "DURATION=" + timestamp(track.durationMs)].join("\n"),
-    ...(native.size ? [["[DRILLS]", ...native.values()].join("\n")] : []),
     ...definitions.values(), ["[CUES]", ...cues].join("\n")].join("\n\n") + "\n";
   return { source, issues };
 }
