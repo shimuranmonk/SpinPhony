@@ -1,5 +1,11 @@
 # SpinPhony handover
 
+## Coaching specification checkpoint (2026-11-23)
+
+[Coaching Specification v1](COACHING_SPEC_V1.md) is the development contract for the recovered coaching decisions. Use its supersession rules, validation gates and acceptance scenarios when reviewing generator changes. The reviewed remote base is `feat/music-event-panel` at `acdb24213e2649008e5d8a62b5c484fd41e7ece2`. A clean local SpinPhony checkout at `b759606` was observed with the same preceding music-led commit. The documentation branch uses the verified remote base and leaves the local application stack intact.
+
+The maintainer’s next-ball decision governs interrupted cycles. Verify true pauses and the exact resume cursor with the frozen MSYNC v1 consumer. Test preparation-only handling against the activation requirement. Record format acceptance separately from runtime behavior and physical robot validation. The calibration ranges are preliminary proposals. The available conversation did not expose the earlier questionnaire turns. Application tests, hardware checks, merge and deployment are pending for this checkpoint.
+
 ## Checkpoint
 
 PCON v1 is installed locally and bundled in the repository. The six continuity roles passed the bundled validator on the existing initialization branch. The reviewed `main` was the README-only commit `1d4429629c38ca934e4d994eeabf992104d82142`. The existing initialization commit `31ee5d1ab945e169af596d6d1af2d019d578e117` was preserved and opened for review in [PR #1](https://github.com/shimuranmonk/SpinPhony/pull/1). Development started from a clean, separate SpinPhony checkout of that branch.
