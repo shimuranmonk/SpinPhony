@@ -5,10 +5,40 @@ import { exportTimeline, feedRate, validateTrack } from "../.test-build/generato
 import { estimateRhythm } from "../.test-build/rhythm.js";
 import { detectMusicMarkers } from "../.test-build/music.js";
 import { readTimeline, suggestTimeline } from "../.test-build/score.js";
+import { exportManualScore, initialBall } from "../.test-build/manualScore.js";
 
 const track = { filename: "pulse.wav", durationMs: 24000, sha256: "a".repeat(64), rhythm: { bpm: 120 }, markers: [{ timeMs: 0, kind: "section" }, { timeMs: 250, kind: "hit" }, { timeMs: 1320, kind: "hit" }] };
 const rhythm = { bpm: 120, firstBeatMs: 250 };
 const profile = { pace: "steady", handedness: "right" };
+
+const manualBlocks = [
+  { id: 1, timeMs: 0, kind: "Custom Drill", name: "Test pattern", balls: [initialBall], random: false, note: "Start" },
+  { id: 2, timeMs: 0, kind: "Flavor", flavorField: "BPM", flavorValue: 40, note: "" },
+  { id: 3, timeMs: 1000, kind: "Rest", seconds: 2.5, note: "" },
+  { id: 4, timeMs: 5000, kind: "Idle", seconds: 4, note: "" },
+  { id: 5, timeMs: 10000, kind: "Stop", note: "" },
+];
+
+test("manual blocks export authored timing, modifiers, and a timed rest", async () => {
+  const source = exportManualScore(track, manualBlocks);
+  assert.match(source, /00:00\.000 INLINE=INL_BLOCK_1[\s\S]*00:00\.000 FLAVOR=FLV_BLOCK_2/u);
+  assert.match(source, /00:01\.000 REST=2\.5[\s\S]*00:05\.000 IDLE[\s\S]*00:10\.000 STOP/u);
+  if (process.env.MSYNC_VALIDATOR) {
+    const { validateMsyncSource } = await import(process.env.MSYNC_VALIDATOR);
+    const result = validateMsyncSource(source);
+    assert.equal(result.valid, true, JSON.stringify(result.errors));
+    assert.equal(result.warnings.length, 0, JSON.stringify(result.warnings));
+  }
+});
+
+test("manual export rejects overlapping pauses, illegal ball parameters, and cues after Stop", () => {
+  assert.throws(() => exportManualScore(track, [...manualBlocks,
+    { ...manualBlocks[0], id: 6, timeMs: 6000 }]), /overlaps a reserved pause/);
+  assert.throws(() => exportManualScore(track, [{ ...manualBlocks[0], balls: [{ ...initialBall, SPEED: 10 }] },
+    ...manualBlocks.slice(1)]), /Spin exceeds/);
+  assert.throws(() => exportManualScore(track, [...manualBlocks,
+    { ...manualBlocks[0], id: 6, timeMs: 11000 }]), /after Stop/);
+});
 
 test("periodic transients produce a tempo and first beat, even with opposite-phase stereo", () => {
   const rate = 12000;

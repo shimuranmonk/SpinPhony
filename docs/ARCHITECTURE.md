@@ -1,5 +1,9 @@
 # SpinPhony architecture
 
+## Complete Customization
+
+The manual editor consumes detections as timing suggestions and stores its own authored blocks. It does not call the automatic planner. It compiles library-backed and custom presets to inline drill definitions, Flavor to a supported field override, Rest to a timed cue, Idle to a bare cue with an editor-only timing reservation, and Stop to an explicit session end. Its export checks cue order, activations, pause overlaps and frozen ball ranges. Device calibration and built-in identifiers require separate verification.
+
 ## Browser generator
 
 React, TypeScript and Vite provide a standalone static app. The browser hashes the original bytes with Web Crypto and decodes the file with Web Audio at 12 kHz. Inputs must be browser-decodable, 8 seconds to 6 minutes long and at most 32 MiB. A plain filename with an extension is required for export.

@@ -1,5 +1,11 @@
 # SpinPhony handover
 
+## Complete Customization
+
+The maintainer approved a separate block editor alongside Auto Generate. Musical markers are drop targets and timing references. The manual score stays separate from automatic generation and persists across tab switches until the audio file is replaced. A block can be added by drag-and-drop or by choosing a block type and pressing Add. Click a placed block to edit its time, parameters or duration. Feed presets currently set 35, 45 or 60 balls/minute as editable UI starting points. These are file-level choices awaiting robot calibration. Idle duration reserves timeline space and exports as a bare IDLE cue. Rest duration exports as REST. Stop ends the authored score, including before audio end.
+
+The local base was `b759606`; the equivalent remote Preview base is `acdb242`. Production build, 14 automated tests, and the Chrome manual-editor download check passed. The next gate is to validate device-specific limits and map verified built-in drill IDs. The catalog-backed Drill and Custom Drill blocks currently export INLINE. There was no robot operation.
+
 ## Checkpoint
 
 PCON v1 is installed locally and bundled in the repository. The six continuity roles passed the bundled validator on the existing initialization branch. The reviewed `main` was the README-only commit `1d4429629c38ca934e4d994eeabf992104d82142`. The existing initialization commit `31ee5d1ab945e169af596d6d1af2d019d578e117` was preserved and opened for review in [PR #1](https://github.com/shimuranmonk/SpinPhony/pull/1). Development started from a clean, separate SpinPhony checkout of that branch.

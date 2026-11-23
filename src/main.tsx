@@ -7,12 +7,16 @@ import type { Profile } from "./generator.js";
 import { readTimeline, suggestTimeline } from "./score.js";
 import { describeMusicEvents } from "./musicEvents.js";
 import { TimelinePreview } from "./TimelinePreview.js";
+import { ManualEditor } from "./ManualEditor.js";
+import type { Block } from "./manualScore.js";
 import { analyzeFile } from "./rhythm.js";
 import type { Track } from "./rhythm.js";
 import "./style.css";
 
 function App() {
-  const [tab, setTab] = useState<"setup" | "preview">("setup");
+  const tabs = ["setup", "preview", "manual"] as const;
+  const [tab, setTab] = useState<typeof tabs[number]>("setup");
+  const [blocks, setBlocks] = useState<Block[]>([]);
   const [file, setFile] = useState<File>();
   const [track, setTrack] = useState<Track>();
   const [busy, setBusy] = useState(false);
@@ -31,6 +35,7 @@ function App() {
     setFile(file);
     setTrack(undefined);
     setScore(undefined);
+    setBlocks([]);
     setError("");
 
     setBusy(Boolean(file));
@@ -52,9 +57,9 @@ function App() {
     setProfile(previous => ({ ...previous, [key]: value }));
   }
 
-  function download() {
-    if (!track || !source) return;
-    const url = URL.createObjectURL(new Blob([source], { type: "text/plain;charset=utf-8" }));
+  function download(downloadSource: string) {
+    if (!track || !downloadSource) return;
+    const url = URL.createObjectURL(new Blob([downloadSource], { type: "text/plain;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = track.filename.replace(/\.[^.]+$/, "") + ".msync";
@@ -90,15 +95,16 @@ function App() {
       <div className="tabs" role="tablist" aria-label="SpinPhony" onKeyDown={event => {
         if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
         event.preventDefault();
-        const next = event.key === "Home" ? "setup" : event.key === "End" ? "preview"
-          : tab === "setup" ? "preview" : "setup";
+        const offset = event.key === "ArrowLeft" ? -1 : 1;
+        const next = event.key === "Home" ? tabs[0] : event.key === "End" ? tabs[2]
+          : tabs[(tabs.indexOf(tab) + offset + tabs.length) % tabs.length];
         setTab(next);
         document.getElementById(next + "-tab")?.focus();
       }}>
-        {(["setup", "preview"] as const).map(item => (
+        {tabs.map(item => (
           <button key={item} id={item + "-tab"} role="tab" type="button" aria-selected={tab === item}
             aria-controls={item + "-panel"} tabIndex={tab === item ? 0 : -1} onClick={() => setTab(item)}>
-            {item === "setup" ? "Setup" : "Preview"}
+            {item === "setup" ? "Auto Generate" : item === "preview" ? "Preview" : "Complete Customization"}
           </button>
         ))}
       </div>
@@ -168,10 +174,19 @@ function App() {
         {tab === "preview" && (score !== undefined && file && track ? (
           <TimelinePreview file={file} text={score} lines={timeline?.lines ?? []}
             events={describeMusicEvents(track, selected, timeline)} drills={selected} feedBpm={feedBpm}
-            validationError={timelineError} canDownload={Boolean(source)} onDownload={download}
+            validationError={timelineError} canDownload={Boolean(source)} onDownload={() => download(source)}
             onEdit={setScore} />
         ) : <section><p>Generate a timeline in Setup to preview it here.</p></section>)}
       </div>
+      {tab === "manual" && <div id="manual-panel" role="tabpanel" aria-labelledby="manual-tab">
+        {file && track
+          ? <ManualEditor file={file} track={track} left={profile.handedness === "left"}
+              blocks={blocks} onChange={setBlocks} onDownload={download} />
+          : <section><label>Audio file<input type="file" accept="audio/*,.wav,.mp3,.m4a,.ogg,.flac"
+              onChange={event => void load(event.target.files?.[0])} /></label>
+              {busy && <p role="status">Analyzing audio…</p>}
+              {error && <p role="alert">{error}</p>}</section>}
+      </div>}
     </main>
   );
 }

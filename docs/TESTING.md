@@ -1,5 +1,10 @@
 # SpinPhony testing
 
+## Complete Customization checkpoint (2026-11-23)
+
+- The editor worktree based on local Preview revision `b759606` passed the production build and all 14 automated tests with the MSYNC validator loaded from the read-only reference checkout. Coverage includes simultaneous Drill/Flavor, timed Rest, bare Idle, early Stop, illegal coupled ball parameters, overlapping pauses and export validation.
+- Chrome at 390 px with a generated 24-second WAV verified drag-and-drop for Drill, click-to-add for Idle and Stop, editable intensity and duration, tab persistence, no horizontal overflow and a validator-accepted download. This was a browser/file check. Physical robot behavior and verified built-in identifiers are pending.
+
 | Date | Revision or worktree | Check | Result | Evidence and limits |
 | --- | --- | --- | --- | --- |
 | 2026-11-22 | `main` at `1d4429629c38ca934e4d994eeabf992104d82142` | Inspect GitHub head and initial commit inventory | Passed | README-only baseline. |
