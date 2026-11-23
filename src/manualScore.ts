@@ -13,7 +13,7 @@ export const blockKinds = ["CDRILL", "FLAVOR", "IDLE", "STOP"] as const;
 export const maxBalls = 10;
 export type BlockKind = typeof blockKinds[number];
 export type Block = {
-  id: number; timeMs: number; kind: BlockKind; note: string; name: string;
+  id: number; timeMs: number; kind: BlockKind; note: string; name: string; inheritedName?: string;
   balls: Ball[]; random: boolean; once: boolean; seconds: number;
   flavor: Pick<Ball, typeof flavorFields[number]>;
 };
@@ -43,8 +43,12 @@ const fields = ["SPEED", "SPIN", "TYPE", "HEIGHT", "DROP", "BPM", "REPS"] as con
 
 export function blockLabel(block: Block) {
   const detail = block.kind === "IDLE" ? (Number.isFinite(block.seconds) ? block.seconds + "s" : "")
-    : block.kind === "STOP" ? "" : block.name.trim();
+    : block.kind === "STOP" ? "" : block.kind === "CDRILL" ? drillName(block) : block.name.trim();
   return detail ? block.kind + " - " + detail : block.kind;
+}
+
+export function drillName(block: Block) {
+  return clean(block.name) || block.inheritedName || "Custom drill";
 }
 
 function checkField(key: BallField, value: number) {
@@ -57,11 +61,31 @@ function checkSpin(speed: number, spin: number) {
   if (spin > spinLimits[speed * 2]) throw new Error("Spin exceeds the limit for this speed.");
 }
 
-export function compileManualScore(track: Track, blocks: Block[]) {
+export const sessionFields = {
+  COUNTDOWN: { label: "Countdown", max: 10, step: 1 },
+  CYCLE_PAUSE: { label: "Cycle pause", max: 10, step: .001 },
+  ROBOT_LEAD: { label: "Robot lead", max: 5, step: .001 },
+} as const;
+export type SessionField = keyof typeof sessionFields;
+export type SessionSettings = Record<SessionField, string>;
+export const defaultSession: SessionSettings = { COUNTDOWN: "4", CYCLE_PAUSE: "1", ROBOT_LEAD: "0" };
+
+export function compileManualScore(track: Track, blocks: Block[], session = defaultSession) {
   validateTrack(track);
   const definitions = new Map<string, string>();
   const cues: string[] = [];
   const issues: string[] = [];
+  const sessionLines = (Object.keys(sessionFields) as SessionField[]).map(key => {
+    const { label, max, step } = sessionFields[key];
+    const value = session[key].trim();
+    const format = step === 1 ? /^\d+$/ : /^\d+(?:\.\d{1,3})?$/;
+    if (!format.test(value) || Number(value) > max) {
+      issues.push(label + " must be between 0 and " + max
+        + (step === 1 ? " as a whole number." : " with up to three decimal places."));
+      return key + "=";
+    }
+    return key + "=" + Number(value);
+  });
   const sorted = [...blocks].sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
   let previous: Block | undefined;
   let pausedUntil = 0;
@@ -90,7 +114,7 @@ export function compileManualScore(track: Track, blocks: Block[]) {
       if (timeMs < pausedUntil && kind !== "STOP") throw new Error("This block overlaps the reserved IDLE interval.");
       let command: string = kind;
       if (kind === "CDRILL") {
-        const title = clean(block.name);
+        const title = drillName(block);
         if (!title || !block.balls.length || block.balls.length > maxBalls) throw new Error("Enter a name and 1–10 ball entries.");
         const suffix = title.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 25);
         const name = "INL_" + (/^[A-Z]/.test(suffix) ? suffix : "DRILL_" + suffix) + "_" + id;
@@ -102,7 +126,7 @@ export function compileManualScore(track: Track, blocks: Block[]) {
           checkSpin(ball.SPEED, ball.SPIN);
           return "BALL=" + (index + 1) + fields.map(key => ";" + key + "=" + ball[key]).join("");
         });
-        define(definitions, name, ["[INLINE:" + name + "]", "# Drill: " + title, "NAME=" + title,
+        define(definitions, name, ["# Drill: " + title, "[INLINE:" + name + "]", "NAME=" + title,
           "RANDOM=" + block.random, ...balls].join("\n"));
         command = "INLINE=" + name + (block.once ? ";ONCE" : "");
         active = block;
@@ -139,7 +163,7 @@ export function compileManualScore(track: Track, blocks: Block[]) {
   if (!activated) issues.push("Add a valid CDRILL to enable MSYNC export.");
   if (!stopped) issues.push("Add a STOP block where the session should end.");
   const source = [msyncHeader(track, "MSYNC Editor") + "\n\nMSYNC_VERSION=1",
-    "[SESSION]\nCOUNTDOWN=4\nCYCLE_PAUSE=1\nROBOT_LEAD=0",
+    ["[SESSION]", ...sessionLines].join("\n"),
     ["[AUDIO]", "FILENAME=" + track.filename, "SHA256=" + track.sha256, "DURATION=" + timestamp(track.durationMs)].join("\n"),
     ...definitions.values(), ["[CUES]", ...cues].join("\n")].join("\n\n") + "\n";
   return { source, issues };

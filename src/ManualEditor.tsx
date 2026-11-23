@@ -1,24 +1,38 @@
 import { useEffect, useRef, useState } from "react";
 import { timestamp } from "./generator.js";
 import { nativeDrills } from "./nativeDrills.js";
-import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, flavorFields, initialBall, loadBuiltInBalls, maxBalls } from "./manualScore.js";
-import type { BallField, Block, BlockKind } from "./manualScore.js";
+import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, drillName, flavorFields, initialBall, loadBuiltInBalls, maxBalls, sessionFields } from "./manualScore.js";
+import { validateMsyncSource } from "./msync-v1/validator.js";
+import type { BallField, Block, BlockKind, SessionField, SessionSettings } from "./manualScore.js";
 import type { Track } from "./rhythm.js";
 
 type Props = {
   file: File; track: Track;
   blocks: Block[]; onChange: (blocks: Block[]) => void; onDownload: (source: string) => void;
+  session: SessionSettings; onSessionChange: (session: SessionSettings) => void;
 };
 
+function showCurrentRow(list: HTMLUListElement | null) {
+  const row = list?.querySelector('[aria-current="step"]');
+  if (!list || !row) return;
+  const bounds = list.getBoundingClientRect();
+  const item = row.getBoundingClientRect();
+  if (item.top < bounds.top) list.scrollTop += item.top - bounds.top;
+  else if (item.bottom > bounds.bottom) list.scrollTop += item.bottom - bounds.bottom;
+}
 
-
-export function ManualEditor({ file, track, blocks, onChange, onDownload }: Props) {
+export function ManualEditor({ file, track, blocks, onChange, onDownload, session, onSessionChange }: Props) {
   const [url, setUrl] = useState("");
   const [kind, setKind] = useState<BlockKind>("CDRILL");
   const [selected, setSelected] = useState<number>();
   const [playhead, setPlayhead] = useState(0);
   const [editNotice, setEditNotice] = useState("");
+  const [ballSelection, setBallSelection] = useState<{ blockId: number; index: number }>();
+  const [validation, setValidation] = useState<{ key: string; errors: string[]; warnings: string[] }>();
   const audio = useRef<HTMLAudioElement>(null);
+  const markersList = useRef<HTMLUListElement>(null);
+  const blocksList = useRef<HTMLUListElement>(null);
+  const [cueJump, setCueJump] = useState(0);
   useEffect(() => {
     const next = URL.createObjectURL(file);
     setUrl(next);
@@ -26,9 +40,27 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
   }, [file]);
   const block = blocks.find(item => item.id === selected);
   const sorted = [...blocks].sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
-  const currentMarker = track.markers.reduce((current, marker, index) => marker.timeMs <= playhead ? index : current, -1);
-  const currentBlock = sorted.filter(item => item.timeMs <= playhead).at(-1);
-  const { source, issues } = compileManualScore(track, blocks);
+  const markers = [...track.markers, { timeMs: track.durationMs, kind: "end" }];
+  const currentMarker = markers.reduce((current, marker, index) => marker.timeMs <= playhead ? index : current, -1);
+  const latest = sorted.filter(item => item.timeMs <= playhead).at(-1);
+  const currentBlock = latest && block?.timeMs === latest.timeMs ? block : latest;
+  const { source, issues } = compileManualScore(track, blocks, session);
+  const validationKey = JSON.stringify([source, issues]);
+  const currentValidation = validation?.key === validationKey ? validation : undefined;
+  const ballIndex = block && ballSelection?.blockId === block.id
+    ? Math.min(ballSelection.index, block.balls.length - 1) : 0;
+
+  function validate() {
+    const result = validateMsyncSource(source, {
+      track: { filename: track.filename, duration: track.durationMs / 1000, metadata: { sha256: track.sha256 } },
+    });
+    const describe = (issue: { line: number | null; code: string; message: string }) =>
+      (issue.line === null ? "" : "Line " + issue.line + " · ") + issue.message + " (" + issue.code + ")";
+    setValidation({ key: validationKey, errors: [...issues, ...result.errors.map(describe)], warnings: result.warnings.map(describe) });
+  }
+
+  useEffect(() => { showCurrentRow(markersList.current); }, [currentMarker, cueJump]);
+  useEffect(() => { showCurrentRow(blocksList.current); }, [currentBlock?.id, cueJump]);
 
   function drillTimeTaken(type: BlockKind, timeMs: number, except?: number) {
     return type === "CDRILL" && blocks.some(item => item.id !== except && item.kind === "CDRILL" && item.timeMs === timeMs);
@@ -42,7 +74,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
     setEditNotice("");
     const id = Math.max(0, ...blocks.map(item => item.id)) + 1;
     const seconds = Math.min(5, Math.max(.001, (track.durationMs - timeMs) / 1000));
-    const name = type === "CDRILL" ? "Custom drill" : "";
+    const name = "";
     onChange([...blocks, { id, timeMs, kind: type, note: "", name, balls: [{ ...initialBall }],
       seconds, once: false, random: false,
       flavor: { SPEED: 3.5, BPM: 65, SPIN: 2.5, HEIGHT: 38 } }]);
@@ -61,6 +93,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
   function remove(id: number) {
     onChange(blocks.filter(item => item.id !== id));
     if (selected === id) setSelected(undefined);
+    if (ballSelection?.blockId === id) setBallSelection(undefined);
     setEditNotice("");
   }
 
@@ -102,24 +135,26 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
           return <button type="button" key={item.id} data-block={item.kind}
             className={isMarker ? "cue-pin" : "cue-span"} title={label} aria-label={label}
             style={{ left: percent(item.timeMs) + "%", width: isMarker ? undefined : percent(end - item.timeMs) + "%" }}
-            onClick={() => { seek(item.timeMs); setSelected(item.id); }}>
+            onClick={() => { seek(item.timeMs); setSelected(item.id); setCueJump(value => value + 1); }}>
             {!isMarker && blockLabel(item)}
           </button>;
         })}
         <span className="cue-playhead" aria-hidden="true" style={{ left: percent(playhead) + "%" }} />
       </div>
-      <div className="block-tray" aria-label="Available blocks">
-        {blockKinds.map(type => <button type="button" key={type} data-block={type} draggable aria-pressed={kind === type}
-          onDragStart={event => event.dataTransfer.setData("application/x-spinphony-block", type)}
-          onClick={() => setKind(type)}>{type === "CDRILL" ? type + "S" : type}</button>)}
+      <div className="manual-actions">
+        <button type="button" onClick={() => add(kind, playhead)}>Add {kind} at {timestamp(playhead)}</button>
+        <div className="block-tray" aria-label="Available blocks">
+          {blockKinds.map(type => <button type="button" key={type} data-block={type} draggable aria-pressed={kind === type}
+            onDragStart={event => event.dataTransfer.setData("application/x-spinphony-block", type)}
+            onClick={() => setKind(type)}>{type === "CDRILL" ? type + "S" : type}</button>)}
+        </div>
       </div>
+      <p className="hint manual-instruction">Drag a block to a marker, or select a block type and use Add. Click a placed block to edit it.</p>
       {editNotice && <p className="manual-notice" role="status">{editNotice}</p>}
     </div>
-    <p className="hint">Drag a block to a marker, or select a block type and use Add. Click an added block to edit it.</p>
-    <button type="button" onClick={() => add(kind, playhead)}>Add {kind} at {timestamp(playhead)}</button>
     <div className="manual-panels">
-      <div><h3>Music markers</h3><ul className="event-list">
-        {[...track.markers, { timeMs: track.durationMs, kind: "end" }].map((marker, i) =>
+      <div><h3>Music markers</h3><ul className="event-list" ref={markersList} aria-label="Music markers">
+        {markers.map((marker, i) =>
           <li key={i} aria-current={i === currentMarker ? "step" : undefined}
             onDragOver={event => {
               if (event.dataTransfer.types.includes("application/x-spinphony-block")) event.preventDefault();
@@ -136,7 +171,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
             {sorted.filter(item => item.timeMs === marker.timeMs).map(placedBlock)}
           </li>)}
       </ul></div>
-      <div><h3>Your blocks</h3><ul className="event-list">
+      <div><h3>Your blocks</h3><ul className="event-list" ref={blocksList} aria-label="Your blocks">
         {sorted.map(item => <li key={item.id} aria-current={currentBlock?.id === item.id ? "step" : undefined}>
           <button type="button" className="manual-link" onClick={() => seek(item.timeMs)}>{timestamp(item.timeMs)}</button>
           {placedBlock(item)}
@@ -166,19 +201,23 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
       </>}
       {block.kind === "CDRILL" && <>
         <div className="fields">
-          <label>NAME<input value={block.name} onChange={event => update({ name: event.target.value })} /></label>
+          <label>NAME<input value={block.name} placeholder={drillName(block)} onChange={event => update({ name: event.target.value })} /></label>
           <label>RANDOM<select value={String(block.random)} onChange={event => update({ random: event.target.value === "true" })}>
             <option>false</option><option>true</option>
           </select></label>
         </div>
         {block.balls.map((ball, index) => <details key={index}>
-          <summary>BALL {index + 1}</summary>
+          <summary onClick={() => setBallSelection({ blockId: block.id, index })}>BALL {index + 1}</summary>
           <label>Load built-in drill starting at BALL {index + 1}
             <select aria-label={"Load built-in drill starting at BALL " + (index + 1)} value="" onChange={event => {
               if (!event.target.value) return;
               const [key, level] = event.target.value.split(":");
               try {
-                update({ balls: loadBuiltInBalls(block.balls, index, key, Number(level)) });
+                const loaded = loadBuiltInBalls(block.balls, index, key, Number(level));
+                const inheritedName = index === 0 || !block.inheritedName
+                  ? nativeDrills.find(drill => drill.key === key)?.name : block.inheritedName;
+                update({ balls: loaded, inheritedName });
+                setBallSelection({ blockId: block.id, index });
               } catch (error) {
                 setEditNotice(error instanceof Error ? error.message : String(error));
               }
@@ -199,25 +238,56 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
                 onChange={event => update({ balls: block.balls.map((item, i) =>
                   i === index ? { ...item, [key]: event.target.valueAsNumber } : item) })} /></label>;
             })}
+          </div>
+          <div className="manual-type-row">
             <label>TYPE<select value={ball.TYPE} onChange={event => update({ balls: block.balls.map((item, i) =>
               i === index ? { ...item, TYPE: event.target.value as "top" | "back" } : item) })}>
               <option value="top">Topspin</option><option value="back">Backspin</option>
             </select></label>
+            <label className="once-control">
+              <input type="checkbox" checked={block.once} onChange={event => update({ once: event.target.checked })} />Play one cycle
+            </label>
           </div>
-          <button type="button" disabled={block.balls.length === 1}
-            onClick={() => update({ balls: block.balls.filter((_, i) => i !== index) })}>Remove ball</button>
         </details>)}
-        <button type="button" disabled={block.balls.length >= maxBalls}
-          onClick={() => update({ balls: [...block.balls, { ...initialBall }] })}>Add Ball</button>
+        <div className="manual-ball-actions">
+          <button type="button" disabled={block.balls.length === 1}
+            aria-label={"Remove ball " + (ballIndex + 1)}
+            onClick={() => update({ balls: block.balls.filter((_, i) => i !== ballIndex) })}>Remove ball {ballIndex + 1}</button>
+          <button type="button" disabled={block.balls.length >= maxBalls}
+            onClick={() => update({ balls: [...block.balls, { ...initialBall }] })}>Add Ball</button>
+          <button type="button" onClick={() => remove(block.id)}>Remove block</button>
+        </div>
       </>}
-      {block.kind === "CDRILL" && <label className="once-control">
-        <input type="checkbox" checked={block.once} onChange={event => update({ once: event.target.checked })} />Play one cycle
-      </label>}
-      <button type="button" onClick={() => remove(block.id)}>Remove block</button>
+      {block.kind !== "CDRILL" && <button type="button" onClick={() => remove(block.id)}>Remove block</button>}
     </fieldset>}
+    <fieldset>
+      <legend>SESSION</legend>
+      <div className="session-row">
+        {(Object.keys(sessionFields) as SessionField[]).map(key => {
+          const { label, max, step } = sessionFields[key];
+          return <label key={key}>{label} (s)
+            <input type="number" min={0} max={max} step={step} value={session[key]}
+              onChange={event => onSessionChange({ ...session, [key]: event.target.value })} />
+          </label>;
+        })}
+      </div>
+    </fieldset>
     <h3>Live MSYNC Preview</h3>
     <textarea className="live-msync" aria-label="Live MSYNC Preview" readOnly value={source} spellCheck={false} />
     {issues.length > 0 && <ul className="manual-issues" role="status">{issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>}
-    <button type="button" disabled={issues.length > 0} onClick={() => onDownload(source)}>Download MSYNC</button>
+    <div className="manual-ball-actions">
+      <button type="button" onClick={validate}>VALIDATE</button>
+      <button type="button" disabled={issues.length > 0 || Boolean(currentValidation?.errors.length)}
+        onClick={() => onDownload(source)}>Download MSYNC</button>
+    </div>
+    {currentValidation && <div role="status" className="manual-validation">
+      <strong>{currentValidation.errors.length ? "MSYNC validation failed." : "MSYNC validation passed."}</strong>
+      {currentValidation.errors.length > 0 && <ul className="manual-issues">
+        {currentValidation.errors.map((issue, i) => <li key={i}>{issue}</li>)}
+      </ul>}
+      {currentValidation.warnings.length > 0 && <ul>
+        {currentValidation.warnings.map((issue, i) => <li key={i}>Warning: {issue}</li>)}
+      </ul>}
+    </div>}
   </section>;
 }

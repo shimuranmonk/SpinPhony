@@ -7,8 +7,8 @@ import type { Profile } from "./generator.js";
 import { readTimeline, suggestTimeline } from "./score.js";
 import { describeMusicEvents } from "./musicEvents.js";
 import { TimelinePreview } from "./TimelinePreview.js";
-import { nativeDrills } from "./nativeDrills.js";
 import { ManualEditor } from "./ManualEditor.js";
+import { defaultSession } from "./manualScore.js";
 import type { Block } from "./manualScore.js";
 import { analyzeFile } from "./rhythm.js";
 import type { Track } from "./rhythm.js";
@@ -18,11 +18,12 @@ function App() {
   const tabs = ["music", "manual", "setup", "preview"] as const;
   const [tab, setTab] = useState<typeof tabs[number]>("music");
   const [blocks, setBlocks] = useState<Block[]>([]);
+  const [session, setSession] = useState(defaultSession);
   const [file, setFile] = useState<File>();
   const [track, setTrack] = useState<Track>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [selected, setSelected] = useState<Drill[]>(starterDrills);
+  const [selected, setSelected] = useState<Drill[]>(() => starterDrills.slice(0, 1));
   const [drillQuery, setDrillQuery] = useState("");
   const [drillSource, setDrillSource] = useState("");
   const [profile, setProfile] = useState<Profile>({
@@ -104,7 +105,7 @@ function App() {
         {tabs.map(item => (
           <button key={item} id={item + "-tab"} role="tab" type="button" aria-selected={tab === item}
             aria-controls={item + "-panel"} tabIndex={tab === item ? 0 : -1} onClick={() => setTab(item)}>
-            {item === "setup" ? "Auto Generate (Experimental)" : item === "preview" ? "Preview" : item === "manual" ? "MSYNC Editor" : "Music"}
+            {item === "setup" ? "Auto (under development)" : item === "preview" ? "Preview" : item === "manual" ? "MSYNC Editor" : "Music"}
           </button>
         ))}
       </div>
@@ -144,14 +145,11 @@ function App() {
                 }} />
                 <span><strong>{drill.name}</strong><small>{drill.description}</small></span>
               </label>
-              <a href={drill.source} target="_blank" rel="noreferrer">{drill.category}</a>
+              {drill.category === "Nova S Pro manual" ? <small>{drill.category}</small>
+                : <a href={drill.source} target="_blank" rel="noreferrer">{drill.category}</a>}
             </div>
           ))}
           </div>
-          <details>
-            <summary>Nova built-in drills · {nativeDrills.length} patterns for CDRILLS</summary>
-            <ul>{nativeDrills.map(drill => <li key={drill.key}>{drill.name}</li>)}</ul>
-          </details>
         </section>
         {error && tab === "music" && <p role="alert">{error}</p>}
       </div>
@@ -184,12 +182,12 @@ function App() {
             events={describeMusicEvents(track, selected, timeline)} drills={selected} feedBpm={feedBpm}
             validationError={timelineError} canDownload={Boolean(source)} onDownload={() => download(source)}
             onEdit={setScore} />
-        ) : <section><p>Generate a timeline in Auto Generate to preview it here.</p></section>)}
+        ) : <section><p>Generate a timeline in Auto to preview it here.</p></section>)}
       </div>
       {tab === "manual" && <div id="manual-panel" role="tabpanel" aria-labelledby="manual-tab">
         {file && track
           ? <ManualEditor file={file} track={track}
-              blocks={blocks} onChange={setBlocks} onDownload={download} />
+              blocks={blocks} onChange={setBlocks} onDownload={download} session={session} onSessionChange={setSession} />
           : <section><p>{busy ? "Analyzing audio…" : "Choose an audio file in the Music tab to start editing."}</p></section>}
       </div>}
     </main>

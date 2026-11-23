@@ -72,8 +72,8 @@ export function exportTimeline(track: Track, cues: Cue[], profile: Profile, bpm:
   }
   const direction = profile.handedness === "right" ? 1 : -1;
   const blocks = Array.from(used, drill => [
-    "[INLINE:" + drill.id + "]",
     "# Drill: " + drill.name + " — " + drill.description,
+    "[INLINE:" + drill.id + "]",
     "NAME=" + drill.name,
     "RANDOM=" + drill.random,
     ...drill.balls.map((ball, index) => {
