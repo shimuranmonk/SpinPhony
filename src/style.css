@@ -43,6 +43,20 @@ button:disabled { opacity: .55; cursor: default; }
   color: #ecf2ed; font: .875rem / var(--score-line) ui-monospace, monospace;
 }
 .score-editor textarea:focus-visible { outline-offset: -2px; }
+.preview-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.preview-panels > div + div { border-left: 1px solid #3b4d43; }
+.preview-panels h3 { margin: 0; padding: .55rem .7rem; font-size: .95rem; border-top: 1px solid #3b4d43; }
+.event-list { height: min(24rem, 52vh); min-height: 9rem; margin: 0; padding: 0; overflow: auto; list-style: none; background: #17201b; }
+.event-list li { padding: .6rem .7rem; border-bottom: 1px solid #3b4d43; }
+.event-list li[aria-current=step] { background: #354926; box-shadow: inset 3px 0 #caf579; }
+.event-title { display: flex; flex-wrap: wrap; gap: .25rem .5rem; }
+.event-list p { margin: .25rem 0 0; font-size: .85rem; }
+.event-list p:first-of-type { color: #c0cec4; }
+@media (max-width: 620px) {
+  .preview-panels { grid-template-columns: minmax(0, 1fr); }
+  .preview-panels > div + div { border-left: 0; }
+  .preview-panels textarea, .event-list { height: min(15rem, 32vh); }
+}
 .playing-line {
   position: absolute; left: 0; right: 0; height: var(--score-line);
   background: #354926; border-left: 3px solid #caf579; pointer-events: none;

@@ -13,3 +13,5 @@ The `feat/training-library` follow-up adds 42 searchable, individually sourced d
 The audio-preview follow-up separates Setup and Preview. The editable cue list follows local audio playback, and MSYNC downloads carry cue comments and inline drill descriptions. Review this branch above the training-library branch. The exact previously agreed tagline is pending confirmation.
 
 The music-led follow-up replaces fixed beat blocks with detected hits and candidate section changes. The text editor supports per-hit drill assignments and numbered repeats across a section. Review this branch above the audio preview, then measure section and hit accuracy against annotated reference tracks.
+
+The event-panel follow-up shows detected markers beside the editable score, with reasons and actual drill assignments. Both panels highlight and scroll from the same playback clock. Review this branch above the music-led changes.

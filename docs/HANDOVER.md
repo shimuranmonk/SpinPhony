@@ -21,3 +21,5 @@ The training-library follow-up adds 37 manual-derived patterns and five coaching
 The audio-preview follow-up preserves Setup inputs across tab switches and stops playback when leaving Preview or editing the timeline. Comments are optional per cue. Automatic drill names and descriptions are exported as full-line MSYNC comments. Recover the exact approved tagline before updating the header.
 
 The music-led score now controls marker timing and actions. Section labels are editable. Assigned sections reserve their span for their own drill repeats, so their interior hit lines remain visible while the section takes over their actions. Verify detection against annotated tracks before claiming verse, chorus or drop recognition.
+
+The read-only event panel joins original detections, authored markers and scheduled actions by timestamp. Removed markers stay visible as candidates, and section-controlled hits show which drill continues. The view explains the existing drill rotation and section behavior.

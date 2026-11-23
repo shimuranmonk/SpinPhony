@@ -26,3 +26,5 @@ The training library passed the production build and all ten tests with the froz
 Chrome at 390 px verified keyboard tab navigation, cue and comment editing, audio-clock highlights, pause and resume position, Stop clearing the highlight, automatic scrolling, and fixed controls during list scrolling. The resulting download passed the frozen MSYNC validator with zero warnings.
 
 The music-led build and all 12 tests passed with the frozen validator loaded. Synthetic fixtures verified irregular accents, a sustained section boundary, stable marker placement across drill selections, and five-cycle section compilation. Chrome verified editable text, line errors, the five-cycle download, audio highlighting, and pinned controls. A local rock MP3 exercised end-to-end detection and generation. Annotated-song accuracy and physical feed timing remain unverified.
+
+The event panel passed the production build and all 12 existing automated tests. Chrome verified side-by-side panels at 1280 px, a stacked layout at 390 px, candidate preservation after deleting a score line, scheduled section cycles, synchronized highlights and auto-scrolling, and Pause, Resume and Stop.

@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import type { Drill } from "./catalog.js";
+import { timestamp } from "./generator.js";
+import type { MusicEvent } from "./musicEvents.js";
 
 type Props = {
   file: File;
   text: string;
   lines: { timeMs: number; line: number }[];
+  events: MusicEvent[];
   drills: Drill[];
   feedBpm: number;
   validationError: string;
@@ -13,20 +16,27 @@ type Props = {
   onEdit: (text: string) => void;
 };
 
-function activeCueAt(lines: Props["lines"], seconds: number) {
-  const next = lines.findIndex(cue => cue.timeMs > seconds * 1000);
-  const index = next < 0 ? lines.length - 1 : next - 1;
-  return lines[index]?.line ?? -1;
+function activeIndexAt(markers: { timeMs: number }[], seconds: number) {
+  let start = 0;
+  let end = markers.length;
+  while (start < end) {
+    const middle = Math.floor((start + end) / 2);
+    if (markers[middle].timeMs <= seconds * 1000) start = middle + 1;
+    else end = middle;
+  }
+  return start - 1;
 }
 
 export function TimelinePreview(props: Props) {
-  const { file, text, lines, drills, feedBpm, validationError, canDownload, onDownload, onEdit } = props;
+  const { file, text, lines, events, drills, feedBpm, validationError, canDownload, onDownload, onEdit } = props;
   const audio = useRef<HTMLAudioElement>(null);
   const windowRef = useRef<HTMLTextAreaElement>(null);
+  const eventListRef = useRef<HTMLOListElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
   const playbackRequest = useRef(0);
   const [playback, setPlayback] = useState<"stopped" | "playing" | "paused" | "ended">("stopped");
   const [active, setActive] = useState(-1);
+  const [activeEvent, setActiveEvent] = useState(-1);
   const [playbackError, setPlaybackError] = useState("");
 
   useEffect(() => {
@@ -49,12 +59,13 @@ export function TimelinePreview(props: Props) {
     function update() {
       const player = audio.current;
       if (!player) return;
-      setActive(activeCueAt(lines, player.currentTime));
+      setActive(lines[activeIndexAt(lines, player.currentTime)]?.line ?? -1);
+      setActiveEvent(activeIndexAt(events, player.currentTime));
       frame = requestAnimationFrame(update);
     }
     update();
     return () => cancelAnimationFrame(frame);
-  }, [lines, playback]);
+  }, [lines, events, playback]);
 
   useEffect(() => {
     const editor = windowRef.current;
@@ -69,6 +80,16 @@ export function TimelinePreview(props: Props) {
     setScrollTop(editor.scrollTop);
   }, [active]);
 
+  useEffect(() => {
+    const list = eventListRef.current;
+    const row = list?.children[activeEvent];
+    if (!list || !row) return;
+    const bounds = list.getBoundingClientRect();
+    const event = row.getBoundingClientRect();
+    if (event.top < bounds.top) list.scrollTop += event.top - bounds.top;
+    else if (event.bottom > bounds.bottom) list.scrollTop += event.bottom - bounds.bottom;
+  }, [activeEvent]);
+
   function stop() {
     playbackRequest.current++;
     const player = audio.current;
@@ -78,6 +99,7 @@ export function TimelinePreview(props: Props) {
     }
     setPlayback("stopped");
     setActive(-1);
+    setActiveEvent(-1);
     setPlaybackError("");
   }
 
@@ -101,7 +123,10 @@ export function TimelinePreview(props: Props) {
     playbackRequest.current++;
     const player = audio.current;
     player?.pause();
-    if (player) setActive(activeCueAt(lines, player.currentTime));
+    if (player) {
+      setActive(lines[activeIndexAt(lines, player.currentTime)]?.line ?? -1);
+      setActiveEvent(activeIndexAt(events, player.currentTime));
+    }
     setPlayback("paused");
   }
 
@@ -110,6 +135,7 @@ export function TimelinePreview(props: Props) {
       <audio ref={audio} onEnded={() => {
         setPlayback("ended");
         setActive(lines.at(-1)?.line ?? -1);
+        setActiveEvent(events.length - 1);
       }} />
       <div className="result-header">
         <div><h2 id="timeline">Timeline</h2><p>{lines.length} markers · {feedBpm} balls/min</p></div>
@@ -130,16 +156,33 @@ export function TimelinePreview(props: Props) {
           <button disabled={playback !== "paused"} onClick={() => void play(false)}>Resume</button>
           <button disabled={playback === "stopped"} onClick={stop}>Stop</button>
         </div>
-        <div className="score-editor">
-          {active >= 0 && <div className="playing-line" aria-hidden="true"
-            style={{ top: `calc(var(--score-padding) + ${active} * var(--score-line) - ${scrollTop}px)` }} />}
-          <textarea ref={windowRef} aria-label="Editable timeline" aria-describedby="timeline-help"
-            aria-invalid={Boolean(validationError)} wrap="off" spellCheck={false} value={text}
-            onScroll={event => setScrollTop(event.currentTarget.scrollTop)}
-            onChange={event => {
-              if (playback !== "stopped") stop();
-              onEdit(event.target.value);
-            }} />
+        <div className="preview-panels">
+          <div>
+            <h3>Edit timeline</h3>
+            <div className="score-editor">
+              {active >= 0 && <div className="playing-line" aria-hidden="true"
+                style={{ top: `calc(var(--score-padding) + ${active} * var(--score-line) - ${scrollTop}px)` }} />}
+              <textarea ref={windowRef} aria-label="Editable timeline" aria-describedby="timeline-help"
+                aria-invalid={Boolean(validationError)} wrap="off" spellCheck={false} value={text}
+                onScroll={event => setScrollTop(event.currentTarget.scrollTop)}
+                onChange={event => {
+                  if (playback !== "stopped") stop();
+                  onEdit(event.target.value);
+                }} />
+            </div>
+          </div>
+          <div>
+            <h3 id="music-events">Detected events and cues</h3>
+            <ol ref={eventListRef} className="event-list" aria-labelledby="music-events" tabIndex={0}>
+              {events.map((event, index) => (
+                <li key={event.timeMs} aria-current={activeEvent === index ? "step" : undefined}>
+                  <div className="event-title"><time>{timestamp(event.timeMs)}</time> <strong>{event.title}</strong></div>
+                  <p>{event.detail}</p>
+                  <p>{event.action}</p>
+                </li>
+              ))}
+            </ol>
+          </div>
         </div>
       </div>
     </section>

@@ -5,6 +5,7 @@ import type { Drill } from "./catalog.js";
 import { exportTimeline, feedRate, timestamp } from "./generator.js";
 import type { Profile } from "./generator.js";
 import { readTimeline, suggestTimeline } from "./score.js";
+import { describeMusicEvents } from "./musicEvents.js";
 import { TimelinePreview } from "./TimelinePreview.js";
 import { analyzeFile } from "./rhythm.js";
 import type { Track } from "./rhythm.js";
@@ -63,7 +64,7 @@ function App() {
 
   let timelineError = "";
   let source = "";
-  let musicLines: ReturnType<typeof readTimeline>["lines"] = [];
+  let timeline: ReturnType<typeof readTimeline> | undefined;
   const feedBpm = track ? feedRate(track, profile) : 60;
   const query = drillQuery.trim().toLowerCase();
   const visibleDrills = drills.filter(drill =>
@@ -71,8 +72,7 @@ function App() {
     && (drill.name + " " + drill.description).toLowerCase().includes(query));
   if (track && score !== undefined) {
     try {
-      const timeline = readTimeline(score, track.durationMs, selected, feedBpm);
-      musicLines = timeline.lines;
+      timeline = readTimeline(score, track.durationMs, selected, feedBpm);
       if (timeline.cues.length > 1) source = exportTimeline(track, timeline.cues, profile, feedBpm);
       else timelineError = "Assign a drill to a hit or section to enable download.";
     } catch (failure) {
@@ -165,8 +165,9 @@ function App() {
         <button disabled={!track || busy} type="submit">Generate timeline</button>
       </form>
       <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
-        {tab === "preview" && (score !== undefined && file ? (
-          <TimelinePreview file={file} text={score} lines={musicLines} drills={selected} feedBpm={feedBpm}
+        {tab === "preview" && (score !== undefined && file && track ? (
+          <TimelinePreview file={file} text={score} lines={timeline?.lines ?? []}
+            events={describeMusicEvents(track, selected, timeline)} drills={selected} feedBpm={feedBpm}
             validationError={timelineError} canDownload={Boolean(source)} onDownload={download}
             onEdit={setScore} />
         ) : <section><p>Generate a timeline in Setup to preview it here.</p></section>)}
