@@ -8,7 +8,7 @@
 body { margin: 0; }
 main { width: min(100% - 2rem, 48rem); margin: 3rem auto; }
 header { margin-bottom: 2rem; border-top: .5rem solid #f4b842; padding-top: 1rem; }
-h1 { margin: 0; font-size: clamp(2rem, 8vw, 4rem); line-height: 1.1; letter-spacing: -.055em; }
+h1 { margin: 0; font-size: clamp(1.4rem, 4vw, 2.15rem); line-height: 1.1; letter-spacing: -.055em; }
 h2 { margin: 0 0 .75rem; font-size: 1.2rem; }
 p { margin: .65rem 0; }
 section { padding: 1.25rem; margin-bottom: 1rem; border: 1px solid #c7ddd8; border-radius: 1rem; background: #fffefa; }
@@ -86,9 +86,18 @@ time { font-variant-numeric: tabular-nums; color: #00867e; }
 }
 .manual-issues { color: #8a2333; overflow-wrap: anywhere; }
 .once-control { display: flex; align-items: center; gap: .5rem; }
-.manual-editor fieldset, .manual-editor h3 { scroll-margin-top: 7rem; }
-.block-tray { display: flex; flex-wrap: wrap; gap: .45rem; }
-.block-tray button { cursor: grab; }
+.manual-editor fieldset, .manual-editor h3 { scroll-margin-top: 10rem; }
+.block-tray { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .45rem; }
+.block-tray button { cursor: grab; padding: .32rem .55rem; font-size: .85rem; }
+.manual-notice { color: #8a2333; margin: .35rem 0 0; font-size: .85rem; }
+.placed-block { position: relative; display: inline-flex; max-width: 100%; border-radius: .6rem; }
+.placed-block > button[data-block] { padding-right: 2.15rem; overflow-wrap: anywhere; }
+.placed-block .remove-chip {
+  position: absolute; inset: .16rem .16rem auto auto; display: grid; place-items: center;
+  width: 1.6rem; height: 1.6rem; padding: 0; border-radius: .4rem;
+  background: #ffffffa8; color: #173439; line-height: 1; font-size: 1.12rem;
+}
+.placed-block .remove-chip:hover { background: #fff; }
 .manual-panels { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .75rem; }
 .manual-panels h3 { font-size: 1rem; margin-bottom: .35rem; }
 .manual-panels li { display: flex; align-items: center; flex-wrap: wrap; gap: .35rem; }

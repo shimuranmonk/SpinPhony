@@ -10,11 +10,14 @@ type Props = {
 };
 
 
+const isDrill = (kind: BlockKind) => kind === "NDRILL" || kind === "CDRILL";
+
 export function ManualEditor({ file, track, blocks, onChange, onDownload }: Props) {
   const [url, setUrl] = useState("");
   const [kind, setKind] = useState<BlockKind>("NDRILL");
   const [selected, setSelected] = useState<number>();
   const [playhead, setPlayhead] = useState(0);
+  const [editNotice, setEditNotice] = useState("");
   const audio = useRef<HTMLAudioElement>(null);
   useEffect(() => {
     const next = URL.createObjectURL(file);
@@ -27,7 +30,16 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
   const currentBlock = sorted.filter(item => item.timeMs <= playhead).at(-1);
   const { source, issues } = compileManualScore(track, blocks);
 
+  function drillTimeTaken(type: BlockKind, timeMs: number, except?: number) {
+    return isDrill(type) && blocks.some(item => item.id !== except && isDrill(item.kind) && item.timeMs === timeMs);
+  }
+
   function add(type: BlockKind, timeMs: number) {
+    if (drillTimeTaken(type, timeMs)) {
+      setEditNotice("Only one drill can occupy " + timestamp(timeMs) + ". Remove or move the existing drill first.");
+      return;
+    }
+    setEditNotice("");
     const id = Math.max(0, ...blocks.map(item => item.id)) + 1;
     const seconds = Math.min(5, Math.max(.001, (track.durationMs - timeMs) / 1000));
     const name = type === "CDRILL" ? "Custom drill" : "";
@@ -38,7 +50,28 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
   }
 
   function update(patch: Partial<Block>) {
+    if (block && patch.timeMs !== undefined && drillTimeTaken(block.kind, patch.timeMs, block.id)) {
+      setEditNotice("Only one drill can occupy " + timestamp(patch.timeMs) + ". Choose another time.");
+      return;
+    }
+    setEditNotice("");
     onChange(blocks.map(item => item.id === selected ? { ...item, ...patch } : item));
+  }
+
+  function remove(id: number) {
+    onChange(blocks.filter(item => item.id !== id));
+    if (selected === id) setSelected(undefined);
+    setEditNotice("");
+  }
+
+  function placedBlock(item: Block) {
+    const label = blockLabel(item);
+    return <span className="placed-block" key={item.id} data-block={item.kind}>
+      <button type="button" data-block={item.kind} aria-pressed={item.id === selected}
+        onClick={() => { setSelected(item.id); setEditNotice(""); }}>{label}</button>
+      <button type="button" className="remove-chip" aria-label={"Remove " + label}
+        onClick={() => remove(item.id)}>×</button>
+    </span>;
   }
 
   function seek(timeMs: number) {
@@ -75,11 +108,12 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
         })}
         <span className="cue-playhead" aria-hidden="true" style={{ left: percent(playhead) + "%" }} />
       </div>
-    </div>
-    <div className="block-tray" aria-label="Available blocks">
-      {blockKinds.map(type => <button type="button" key={type} data-block={type} draggable aria-pressed={kind === type}
-        onDragStart={event => event.dataTransfer.setData("application/x-spinphony-block", type)}
-        onClick={() => setKind(type)}>{type === "NDRILL" || type === "CDRILL" ? type + "S" : type}</button>)}
+      <div className="block-tray" aria-label="Available blocks">
+        {blockKinds.map(type => <button type="button" key={type} data-block={type} draggable aria-pressed={kind === type}
+          onDragStart={event => event.dataTransfer.setData("application/x-spinphony-block", type)}
+          onClick={() => setKind(type)}>{type === "NDRILL" || type === "CDRILL" ? type + "S" : type}</button>)}
+      </div>
+      {editNotice && <p className="manual-notice" role="status">{editNotice}</p>}
     </div>
     <p className="hint">Drag a block to a marker, or select a block type and use Add. Click an added block to edit it.</p>
     <button type="button" onClick={() => add(kind, playhead)}>Add {kind} at {timestamp(playhead)}</button>
@@ -99,16 +133,13 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
             {" "}{marker.kind === "hit" ? "Accent" : marker.kind === "section" ? "Section" : "End"}
             <button type="button" className="manual-link" onClick={() => add(kind, marker.timeMs)}
               aria-label={"Add " + kind + " at " + timestamp(marker.timeMs)}>Add</button>
-            {sorted.filter(item => item.timeMs === marker.timeMs).map(item =>
-              <button type="button" key={item.id} data-block={item.kind} onClick={() => setSelected(item.id)}>{blockLabel(item)}</button>)}
+            {sorted.filter(item => item.timeMs === marker.timeMs).map(placedBlock)}
           </li>)}
       </ul></div>
       <div><h3>Your blocks</h3><ul className="event-list">
         {sorted.map(item => <li key={item.id} aria-current={currentBlock?.id === item.id ? "step" : undefined}>
           <button type="button" className="manual-link" onClick={() => seek(item.timeMs)}>{timestamp(item.timeMs)}</button>
-          <button type="button" data-block={item.kind} aria-pressed={item.id === selected} onClick={() => setSelected(item.id)}>
-            {blockLabel(item)}
-          </button>
+          {placedBlock(item)}
         </li>)}
       </ul></div>
     </div>
@@ -124,13 +155,13 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
             onChange={event => update({ seconds: event.target.valueAsNumber })} /></label>}
       </div>
       {block.kind === "IDLE" && <p className="hint">Feeding stays off until another drill starts. Duration reserves space on the timeline.</p>}
-      {block.kind === "NDRILL" && <div className="fields">
+      {block.kind === "NDRILL" && <><div className="fields">
         <label>Drill alias<input value={block.name} onChange={event => update({ name: event.target.value })} /></label>
         <label>Nova Prime drill ID<input value={block.reference} onChange={event => update({ reference: event.target.value })} /></label>
         <label>LEVEL<select value={block.level} onChange={event => update({ level: Number(event.target.value) })}>
           <option>1</option><option>2</option><option>3</option>
         </select></label>
-      </div>}
+      </div><p className="hint"><strong>Ball parameters</strong> · Nova Prime looks up the ball sequence using this drill ID and level. The ID alone does not provide those values to SpinPhony.</p></>}
       {block.kind === "FLAVOR" && <>
         <label>Flavor name<input value={block.name} onChange={event => update({ name: event.target.value })} /></label>
         <div className="manual-ball">{flavorFields.map(key => {
@@ -171,10 +202,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
       {(block.kind === "CDRILL" || block.kind === "NDRILL") && <label className="once-control">
         <input type="checkbox" checked={block.once} onChange={event => update({ once: event.target.checked })} />Play one cycle
       </label>}
-      <button type="button" onClick={() => {
-        onChange(blocks.filter(item => item.id !== selected));
-        setSelected(undefined);
-      }}>Remove block</button>
+      <button type="button" onClick={() => remove(block.id)}>Remove block</button>
     </fieldset>}
     <h3>Live MSYNC Preview</h3>
     <textarea className="live-msync" aria-label="Live MSYNC Preview" readOnly value={source} spellCheck={false} />

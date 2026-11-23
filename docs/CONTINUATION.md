@@ -1,5 +1,7 @@
 # SpinPhony continuation
 
+- **Timeline follow-up** · [PR #10](https://github.com/shimuranmonk/SpinPhony/pull/10) adds corner removal and prevents multiple drill blocks at the same timestamp. The audio player, cue map and block tray stay together while scrolling. NDRILL ball values require controller catalog data.
+
 - **Customization revision (2026-11-24)** · [PR #10](https://github.com/shimuranmonk/SpinPhony/pull/10) now carries NDRILLS, CDRILLS, FLAVOR, IDLE and STOP, a sticky player, a colored cue strip and live MSYNC text. Both download paths include the temporary tagline. REST and ADRILLS are outside the current manual editor.
 - **Next check** · Verify pasted NDRILL identifiers against the target controller's catalog, then incorporate the maintainer-supplied robot-specific limits. File-level validation and Chrome export checks are recorded in [testing](TESTING.md).
 

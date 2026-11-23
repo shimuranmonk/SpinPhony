@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- Chrome at 390 px verified corner removal updates both the cue map and live MSYNC, a second drill at the same timestamp is blocked, and the block tray stays visible with playback controls. The resulting download matched the preview and passed the frozen validator.
+
 ## Customization revision (2026-11-24)
 
 - Production build and all 14 automated tests passed with the read-only MSYNC validator loaded. Coverage includes pasted NDRILL references, numbered CDRILL lines, all four FLAVOR fields, invalid drafts and export headers.
