@@ -103,7 +103,7 @@ function App() {
         {tabs.map(item => (
           <button key={item} id={item + "-tab"} role="tab" type="button" aria-selected={tab === item}
             aria-controls={item + "-panel"} tabIndex={tab === item ? 0 : -1} onClick={() => setTab(item)}>
-            {item === "setup" ? "Auto Generate" : item === "preview" ? "Preview" : "Complete Customization"}
+            {item === "setup" ? "Auto Generate (Experimental)" : item === "preview" ? "Preview" : "Complete Customization"}
           </button>
         ))}
       </div>

@@ -1,4 +1,5 @@
 import { msyncHeader, timestamp, validateTrack } from "./generator.js";
+import { nativeDrills } from "./nativeDrills.js";
 import type { Track } from "./rhythm.js";
 
 export const ballFields = {
@@ -14,7 +15,7 @@ export type BlockKind = typeof blockKinds[number];
 export type Block = {
   id: number; timeMs: number; kind: BlockKind; note: string; name: string;
   balls: Ball[]; random: boolean; once: boolean; seconds: number;
-  reference: string; level: number; flavor: Pick<Ball, typeof flavorFields[number]>;
+  reference: string; builtinKey?: string; level: number; flavor: Pick<Ball, typeof flavorFields[number]>;
 };
 export const initialBall: Ball = {
   SPEED: 3, SPIN: 2, TYPE: "top", HEIGHT: 20, DROP: 0, BPM: 35, REPS: 1,
@@ -80,11 +81,15 @@ export function compileManualScore(track: Track, blocks: Block[]) {
         const name = "DRL_" + alias(block.name, "DRL").replace(/\s+/g, "_");
         if (!validAlias.test(name.slice(4))) throw new Error("Enter a drill alias starting with a letter and using up to 36 letters, numbers or underscores.");
         const reference = block.reference.trim().replace(/^CUSTOM:/i, "");
-        if (!/^(?:drill_[a-z0-9_-]{5,}|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(reference)) {
+        if (block.builtinKey && !nativeDrills.some(drill => drill.key === block.builtinKey)) {
+          throw new Error("Choose a built-in drill from the catalog.");
+        }
+        if (!block.builtinKey && !/^(?:drill_[a-z0-9_-]{5,}|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i.test(reference)) {
           throw new Error("Paste the drill ID from the Nova Prime controller.");
         }
         if (![1, 2, 3].includes(block.level)) throw new Error("Select level 1, 2 or 3.");
-        define(native, name, name + "=CUSTOM:" + reference + ";LEVEL=" + block.level);
+        const target = block.builtinKey ? "BUILTIN:" + block.builtinKey : "CUSTOM:" + reference;
+        define(native, name, name + "=" + target + ";LEVEL=" + block.level);
         command = "DRILL=" + name + (block.once ? ";ONCE" : "");
         active = block;
         activated = true;
@@ -138,6 +143,7 @@ export function compileManualScore(track: Track, blocks: Block[]) {
   if (!activated) issues.push("Add a valid NDRILL or CDRILL to enable MSYNC export.");
   if (!stopped) issues.push("Add a STOP block where the session should end.");
   const source = [msyncHeader(track, "Complete Customization") + "\n\nMSYNC_VERSION=1",
+    "[SESSION]\nCOUNTDOWN=4\nCYCLE_PAUSE=1\nROBOT_LEAD=0",
     ["[AUDIO]", "FILENAME=" + track.filename, "SHA256=" + track.sha256, "DURATION=" + timestamp(track.durationMs)].join("\n"),
     ...(native.size ? [["[DRILLS]", ...native.values()].join("\n")] : []),
     ...definitions.values(), ["[CUES]", ...cues].join("\n")].join("\n\n") + "\n";

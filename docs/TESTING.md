@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The built-in NDRILL follow-up passed the production build and all 15 automated tests. Chrome verified the Drive FH feed rate changes from 54 to 72 when switching from level 1 to 3, and the exported file matched the live preview and passed validation with Nova Prime’s catalog loaded. No hardware was operated.
+
 - Chrome at 390 px verified corner removal updates both the cue map and live MSYNC, a second drill at the same timestamp is blocked, and the block tray stays visible with playback controls. The resulting download matched the preview and passed the frozen validator.
 
 ## Customization revision (2026-11-24)

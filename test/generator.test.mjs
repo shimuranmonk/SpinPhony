@@ -6,6 +6,7 @@ import { estimateRhythm } from "../.test-build/rhythm.js";
 import { detectMusicMarkers } from "../.test-build/music.js";
 import { readTimeline, suggestTimeline } from "../.test-build/score.js";
 import { compileManualScore, initialBall } from "../.test-build/manualScore.js";
+import { nativeDrills } from "../.test-build/nativeDrills.js";
 
 const track = { filename: "pulse.wav", durationMs: 24000, sha256: "a".repeat(64), rhythm: { bpm: 120 }, markers: [{ timeMs: 0, kind: "section" }, { timeMs: 250, kind: "hit" }, { timeMs: 1320, kind: "hit" }] };
 const rhythm = { bpm: 120, firstBeatMs: 250 };
@@ -23,6 +24,7 @@ test("manual export writes the header, native drill, numbered inline balls, and 
   const { source, issues } = compileManualScore(track, manualBlocks);
   assert.deepEqual(issues, []);
   assert.match(source, /^# pulse - SpinPhony MSYNC v1\n# Soundtrack of a Loop/u);
+  assert.match(source, /\[SESSION\]\nCOUNTDOWN=4\nCYCLE_PAUSE=1\nROBOT_LEAD=0\n\n\[AUDIO\]/u);
   assert.match(source, /\[DRILLS\]\nDRL_DRVF=CUSTOM:drill_9cf8de6a-e55f-48bd-86a1-393d59c06546;LEVEL=2/u);
   assert.match(source, /\[INLINE:INL_LOOPERS_1\][\s\S]*BALL=2;SPEED=3;SPIN=2;TYPE=top;HEIGHT=20;DROP=0;BPM=70;REPS=1/u);
   assert.match(source, /\[FLAVOR:FLV_FAST\]\nFLV_SPEED=3.5\nFLV_BPM=65\nFLV_SPIN=2.5\nFLV_HEIGHT=38/u);
@@ -32,6 +34,16 @@ test("manual export writes the header, native drill, numbered inline balls, and 
     const result = validateMsyncSource(source);
     assert.equal(result.valid, true, JSON.stringify(result.errors));
   }
+});
+
+test("built-in NDRILL exports its controller key and requested catalog level", () => {
+  const drive = nativeDrills.find(drill => drill.key === "drive(f)");
+  assert.deepEqual(drive.levels.map(level => level[0].bpm), [54, 60, 72]);
+  const blocks = manualBlocks.map(block => block.kind === "NDRILL"
+    ? { ...block, builtinKey: drive.key, level: 3 } : block);
+  const { source, issues } = compileManualScore(track, blocks);
+  assert.deepEqual(issues, []);
+  assert.match(source, /DRL_DRVF=BUILTIN:drive\(f\);LEVEL=3/u);
 });
 
 test("manual draft stays visible and reports invalid pauses, parameters, ball counts, and cues after STOP", () => {

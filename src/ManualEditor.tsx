@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { timestamp } from "./generator.js";
+import { nativeDrills } from "./nativeDrills.js";
 import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, flavorFields, initialBall, maxBalls } from "./manualScore.js";
 import type { BallField, Block, BlockKind } from "./manualScore.js";
 import type { Track } from "./rhythm.js";
@@ -25,6 +26,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
     return () => URL.revokeObjectURL(next);
   }, [file]);
   const block = blocks.find(item => item.id === selected);
+  const nativeDrill = block?.kind === "NDRILL" ? nativeDrills.find(drill => drill.key === block.builtinKey) : undefined;
   const sorted = [...blocks].sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
   const currentMarker = track.markers.reduce((current, marker, index) => marker.timeMs <= playhead ? index : current, -1);
   const currentBlock = sorted.filter(item => item.timeMs <= playhead).at(-1);
@@ -156,12 +158,30 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload }: Prop
       </div>
       {block.kind === "IDLE" && <p className="hint">Feeding stays off until another drill starts. Duration reserves space on the timeline.</p>}
       {block.kind === "NDRILL" && <><div className="fields">
+        <label>Built-in drill<select value={block.builtinKey ?? ""} onChange={event => {
+          const drill = nativeDrills.find(item => item.key === event.target.value);
+          const previousName = nativeDrill?.key.replace(/[^a-z0-9]+/gi, "_").replace(/_+$/, "");
+          const defaultName = drill?.key.replace(/[^a-z0-9]+/gi, "_").replace(/_+$/, "");
+          update({ builtinKey: drill?.key, name: !block.name || block.name === previousName ? defaultName ?? "" : block.name });
+        }}>
+          <option value="">Use a pasted Nova Prime ID</option>
+          {nativeDrills.map(drill => <option key={drill.key} value={drill.key}>{drill.name}</option>)}
+        </select></label>
         <label>Drill alias<input value={block.name} onChange={event => update({ name: event.target.value })} /></label>
-        <label>Nova Prime drill ID<input value={block.reference} onChange={event => update({ reference: event.target.value })} /></label>
+        {!nativeDrill && <label>Nova Prime drill ID<input value={block.reference} onChange={event => update({ reference: event.target.value })} /></label>}
         <label>LEVEL<select value={block.level} onChange={event => update({ level: Number(event.target.value) })}>
           <option>1</option><option>2</option><option>3</option>
         </select></label>
-      </div><p className="hint"><strong>Ball parameters</strong> · Nova Prime looks up the ball sequence using this drill ID and level. The ID alone does not provide those values to SpinPhony.</p></>}
+      </div>{nativeDrill ? <div className="native-ball-table" tabIndex={0} role="region" aria-label="Built-in ball parameters">
+        <table>
+          <caption>{nativeDrill.name} · Level {block.level} · RANDOM {String(nativeDrill.random)}</caption>
+          <thead><tr>{["BALL", "SPEED", "SPIN", "TYPE", "HEIGHT", "DROP", "BPM", "REPS", "SCATTER"].map(field =>
+            <th key={field} scope="col">{field}</th>)}</tr></thead>
+          <tbody>{nativeDrill.levels[block.level - 1]?.map((ball, index) =>
+            <tr key={index}><th scope="row">{index + 1}</th><td>{ball.speed}</td><td>{ball.spin}</td><td>{ball.type}</td>
+              <td>{ball.height}</td><td>{ball.drop}</td><td>{ball.bpm}</td><td>{ball.repetitions}</td><td>{ball.scatter}</td></tr>)}</tbody>
+        </table>
+      </div> : <p className="hint"><strong>Ball parameters</strong> · Nova Prime looks up the ball sequence using this drill ID and level. The ID alone does not provide those values to SpinPhony.</p>}</>}
       {block.kind === "FLAVOR" && <>
         <label>Flavor name<input value={block.name} onChange={event => update({ name: event.target.value })} /></label>
         <div className="manual-ball">{flavorFields.map(key => {

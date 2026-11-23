@@ -90,6 +90,10 @@ time { font-variant-numeric: tabular-nums; color: #00867e; }
 .block-tray { display: flex; flex-wrap: wrap; gap: .35rem; margin-top: .45rem; }
 .block-tray button { cursor: grab; padding: .32rem .55rem; font-size: .85rem; }
 .manual-notice { color: #8a2333; margin: .35rem 0 0; font-size: .85rem; }
+.native-ball-table { overflow-x: auto; }
+.native-ball-table table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.native-ball-table caption { text-align: left; font-weight: 700; margin-bottom: .4rem; }
+.native-ball-table th, .native-ball-table td { padding: .3rem .45rem; border-bottom: 1px solid #c7ddd8; text-align: left; }
 .placed-block { position: relative; display: inline-flex; max-width: 100%; border-radius: .6rem; }
 .placed-block > button[data-block] { padding-right: 2.15rem; overflow-wrap: anywhere; }
 .placed-block .remove-chip {
