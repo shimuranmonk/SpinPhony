@@ -1,8 +1,8 @@
 # SpinPhony continuation
 
 - **Coaching checkpoint (2026-11-23)** · [Coaching Specification v1](COACHING_SPEC_V1.md) records the recovered behavioral contract, provisional calibration, and acceptance scenarios. Reviewed GitHub base: `feat/music-event-panel` at `acdb24213e2649008e5d8a62b5c484fd41e7ece2`.
-- **Coaching status** · Documentation only. Questionnaire history is incomplete in the available transcript. Coaching implementation, scheduler/device validation and scenario execution are pending.
-- **Coaching next action** · Reconcile any missing questionnaire answers, then run the specification’s frozen-format feasibility checks for exact next-ball resume, true no-feed recovery and preparation-only export before dependent scheduling work.
+- **Coaching status** · Documentation only. Reconciled against the maintainer-supplied SpinPhony Coaching Decisions v1 record. Coaching implementation, scheduler/device validation and scenario execution are pending.
+- **Coaching next action** · Run the specification’s frozen-format feasibility checks for exact next-ball resume, true no-feed recovery and preparation-only export before dependent scheduling work.
 
 ## Existing application stack
 
