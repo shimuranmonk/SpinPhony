@@ -1,5 +1,7 @@
 # SpinPhony continuation
 
+- **MSYNC validation** · The editor validates its live text against the bundled frozen v1 parser and validator from Nova Prime revision `0add69de48c1720f61da6d807ee23e88e979d69c`. It reports file issues alongside draft issues. Built-in ball imports supply an unnamed drill’s fallback name.
+
 - **Editor follow-up** · The sticky transport includes Add and the block tray. Cue-map selection brings both fixed-height lists to the selected timestamp. Manual SESSION controls above the live preview default to 4, 1 and 0 and validate against MSYNC v1.
 
 - **Music and MSYNC Editor revision** · Music owns the shared audio picker and Training Library. MSYNC Editor offers CDRILLS, FLAVOR, IDLE and STOP. CDRILLS load level-specific built-in patterns at the selected BALL entry and export editable INLINE definitions. The earlier NDRILL workflow is superseded.

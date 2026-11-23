@@ -27,6 +27,15 @@ test("manual SESSION uses custom values and flags invalid fields", () => {
   assert.equal(invalid.issues.length, 3);
 });
 
+test("manual drill definitions use the inherited name unless named and separate each group", () => {
+  const first = { ...manualBlocks[0], name: "", inheritedName: "Drive FH" };
+  const second = { ...first, id: 8, timeMs: 3000, name: "My pattern" };
+  const { source, issues } = compileManualScore(track, [first, second, manualBlocks.at(-1)]);
+  assert.deepEqual(issues, []);
+  assert.match(source, /# Drill: Drive FH\n\[INLINE:INL_DRIVE_FH_1\]\nNAME=Drive FH/u);
+  assert.match(source, /REPS=1\n\n# Drill: My pattern\n\[INLINE:INL_MY_PATTERN_8\]\nNAME=My pattern/u);
+});
+
 test("manual export writes the header, numbered inline balls, and all four flavor fields", async () => {
   const { source, issues } = compileManualScore(track, manualBlocks);
   assert.deepEqual(issues, []);
@@ -214,7 +223,7 @@ test("drill descriptions and cue notes stay on separate MSYNC comment lines", ()
   const { cues, feedBpm } = compile([drills[0]]);
   cues[0].note = "Forehand multiball\n00:02.000 STOP";
   const source = exportTimeline(track, cues, profile, feedBpm);
-  assert.match(source, /\[INLINE:INL_FOREHAND\]\n# Drill: Forehand drive/);
+  assert.match(source, /# Drill: Forehand drive[^\n]*\n\[INLINE:INL_FOREHAND\]/);
   assert.match(source, /# Forehand drive — Forehand multiball 00:02\.000 STOP\n00:00\.250 INLINE=INL_FOREHAND;ONCE/);
   assert.match(source, /# End of track\n00:24\.000 STOP/);
   assert.doesNotMatch(source, /^00:02\.000 STOP$/m);

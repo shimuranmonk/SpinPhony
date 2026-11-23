@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The VALIDATE and ball-controls follow-up passed the production build and all 17 automated tests. Chrome at 390 px verified default inherited naming, the compact ball action row, missing-STOP feedback, successful validation and an exact live-preview download.
+
 - The sticky transport and SESSION follow-up passed the production build and all 16 automated tests. Chrome at 390 px verified the library default, fixed-height lists, cue-map scrolling, one-row SESSION fields, invalid-value download blocking and a validator-accepted download matching the live preview.
 
 - The Music tab and CDRILL pattern revision passed the production build and all 15 tests. Chrome verified loading two balls at BALL 1, adding BALL 3, loading two more balls there, retaining BALL 1 and BALL 2, and downloading validator-accepted INLINE output identical to the preview.

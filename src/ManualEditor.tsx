@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { timestamp } from "./generator.js";
 import { nativeDrills } from "./nativeDrills.js";
-import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, flavorFields, initialBall, loadBuiltInBalls, maxBalls, sessionFields } from "./manualScore.js";
+import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, drillName, flavorFields, initialBall, loadBuiltInBalls, maxBalls, sessionFields } from "./manualScore.js";
+import { validateMsyncSource } from "./msync-v1/validator.js";
 import type { BallField, Block, BlockKind, SessionField, SessionSettings } from "./manualScore.js";
 import type { Track } from "./rhythm.js";
 
@@ -26,6 +27,8 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
   const [selected, setSelected] = useState<number>();
   const [playhead, setPlayhead] = useState(0);
   const [editNotice, setEditNotice] = useState("");
+  const [ballSelection, setBallSelection] = useState<{ blockId: number; index: number }>();
+  const [validation, setValidation] = useState<{ key: string; errors: string[]; warnings: string[] }>();
   const audio = useRef<HTMLAudioElement>(null);
   const markersList = useRef<HTMLUListElement>(null);
   const blocksList = useRef<HTMLUListElement>(null);
@@ -42,6 +45,19 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
   const latest = sorted.filter(item => item.timeMs <= playhead).at(-1);
   const currentBlock = latest && block?.timeMs === latest.timeMs ? block : latest;
   const { source, issues } = compileManualScore(track, blocks, session);
+  const validationKey = JSON.stringify([source, issues]);
+  const currentValidation = validation?.key === validationKey ? validation : undefined;
+  const ballIndex = block && ballSelection?.blockId === block.id
+    ? Math.min(ballSelection.index, block.balls.length - 1) : 0;
+
+  function validate() {
+    const result = validateMsyncSource(source, {
+      track: { filename: track.filename, duration: track.durationMs / 1000, metadata: { sha256: track.sha256 } },
+    });
+    const describe = (issue: { line: number | null; code: string; message: string }) =>
+      (issue.line === null ? "" : "Line " + issue.line + " · ") + issue.message + " (" + issue.code + ")";
+    setValidation({ key: validationKey, errors: [...issues, ...result.errors.map(describe)], warnings: result.warnings.map(describe) });
+  }
 
   useEffect(() => { showCurrentRow(markersList.current); }, [currentMarker, cueJump]);
   useEffect(() => { showCurrentRow(blocksList.current); }, [currentBlock?.id, cueJump]);
@@ -58,7 +74,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
     setEditNotice("");
     const id = Math.max(0, ...blocks.map(item => item.id)) + 1;
     const seconds = Math.min(5, Math.max(.001, (track.durationMs - timeMs) / 1000));
-    const name = type === "CDRILL" ? "Custom drill" : "";
+    const name = "";
     onChange([...blocks, { id, timeMs, kind: type, note: "", name, balls: [{ ...initialBall }],
       seconds, once: false, random: false,
       flavor: { SPEED: 3.5, BPM: 65, SPIN: 2.5, HEIGHT: 38 } }]);
@@ -77,6 +93,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
   function remove(id: number) {
     onChange(blocks.filter(item => item.id !== id));
     if (selected === id) setSelected(undefined);
+    if (ballSelection?.blockId === id) setBallSelection(undefined);
     setEditNotice("");
   }
 
@@ -184,19 +201,23 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
       </>}
       {block.kind === "CDRILL" && <>
         <div className="fields">
-          <label>NAME<input value={block.name} onChange={event => update({ name: event.target.value })} /></label>
+          <label>NAME<input value={block.name} placeholder={drillName(block)} onChange={event => update({ name: event.target.value })} /></label>
           <label>RANDOM<select value={String(block.random)} onChange={event => update({ random: event.target.value === "true" })}>
             <option>false</option><option>true</option>
           </select></label>
         </div>
         {block.balls.map((ball, index) => <details key={index}>
-          <summary>BALL {index + 1}</summary>
+          <summary onClick={() => setBallSelection({ blockId: block.id, index })}>BALL {index + 1}</summary>
           <label>Load built-in drill starting at BALL {index + 1}
             <select aria-label={"Load built-in drill starting at BALL " + (index + 1)} value="" onChange={event => {
               if (!event.target.value) return;
               const [key, level] = event.target.value.split(":");
               try {
-                update({ balls: loadBuiltInBalls(block.balls, index, key, Number(level)) });
+                const loaded = loadBuiltInBalls(block.balls, index, key, Number(level));
+                const inheritedName = index === 0 || !block.inheritedName
+                  ? nativeDrills.find(drill => drill.key === key)?.name : block.inheritedName;
+                update({ balls: loaded, inheritedName });
+                setBallSelection({ blockId: block.id, index });
               } catch (error) {
                 setEditNotice(error instanceof Error ? error.message : String(error));
               }
@@ -217,21 +238,27 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
                 onChange={event => update({ balls: block.balls.map((item, i) =>
                   i === index ? { ...item, [key]: event.target.valueAsNumber } : item) })} /></label>;
             })}
+          </div>
+          <div className="manual-type-row">
             <label>TYPE<select value={ball.TYPE} onChange={event => update({ balls: block.balls.map((item, i) =>
               i === index ? { ...item, TYPE: event.target.value as "top" | "back" } : item) })}>
               <option value="top">Topspin</option><option value="back">Backspin</option>
             </select></label>
+            <label className="once-control">
+              <input type="checkbox" checked={block.once} onChange={event => update({ once: event.target.checked })} />Play one cycle
+            </label>
           </div>
-          <button type="button" disabled={block.balls.length === 1}
-            onClick={() => update({ balls: block.balls.filter((_, i) => i !== index) })}>Remove ball</button>
         </details>)}
-        <button type="button" disabled={block.balls.length >= maxBalls}
-          onClick={() => update({ balls: [...block.balls, { ...initialBall }] })}>Add Ball</button>
+        <div className="manual-ball-actions">
+          <button type="button" disabled={block.balls.length === 1}
+            aria-label={"Remove ball " + (ballIndex + 1)}
+            onClick={() => update({ balls: block.balls.filter((_, i) => i !== ballIndex) })}>Remove ball {ballIndex + 1}</button>
+          <button type="button" disabled={block.balls.length >= maxBalls}
+            onClick={() => update({ balls: [...block.balls, { ...initialBall }] })}>Add Ball</button>
+          <button type="button" onClick={() => remove(block.id)}>Remove block</button>
+        </div>
       </>}
-      {block.kind === "CDRILL" && <label className="once-control">
-        <input type="checkbox" checked={block.once} onChange={event => update({ once: event.target.checked })} />Play one cycle
-      </label>}
-      <button type="button" onClick={() => remove(block.id)}>Remove block</button>
+      {block.kind !== "CDRILL" && <button type="button" onClick={() => remove(block.id)}>Remove block</button>}
     </fieldset>}
     <fieldset>
       <legend>SESSION</legend>
@@ -248,6 +275,19 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
     <h3>Live MSYNC Preview</h3>
     <textarea className="live-msync" aria-label="Live MSYNC Preview" readOnly value={source} spellCheck={false} />
     {issues.length > 0 && <ul className="manual-issues" role="status">{issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>}
-    <button type="button" disabled={issues.length > 0} onClick={() => onDownload(source)}>Download MSYNC</button>
+    <div className="manual-ball-actions">
+      <button type="button" onClick={validate}>VALIDATE</button>
+      <button type="button" disabled={issues.length > 0 || Boolean(currentValidation?.errors.length)}
+        onClick={() => onDownload(source)}>Download MSYNC</button>
+    </div>
+    {currentValidation && <div role="status" className="manual-validation">
+      <strong>{currentValidation.errors.length ? "MSYNC validation failed." : "MSYNC validation passed."}</strong>
+      {currentValidation.errors.length > 0 && <ul className="manual-issues">
+        {currentValidation.errors.map((issue, i) => <li key={i}>{issue}</li>)}
+      </ul>}
+      {currentValidation.warnings.length > 0 && <ul>
+        {currentValidation.warnings.map((issue, i) => <li key={i}>Warning: {issue}</li>)}
+      </ul>}
+    </div>}
   </section>;
 }
