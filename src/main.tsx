@@ -72,7 +72,7 @@ function App() {
   let timelineError = "";
   let source = "";
   let timeline: ReturnType<typeof readTimeline> | undefined;
-  const feedBpm = track ? feedRate(track, profile) : 60;
+  const feedBpm = feedRate(profile);
   const query = drillQuery.trim().toLowerCase();
   const visibleDrills = drills.filter(drill =>
     (!drillSource || drill.category === drillSource)
@@ -81,7 +81,7 @@ function App() {
     try {
       timeline = readTimeline(score, track.durationMs, selected, feedBpm);
       if (timeline.cues.length > 1) source = exportTimeline(track, timeline.cues, profile, feedBpm);
-      else timelineError = "Assign a drill to a hit or section to enable download.";
+      else timelineError = "No complete practice cycle was scheduled. Assign a drill to a suitable hit or section to enable download.";
     } catch (failure) {
       timelineError = failure instanceof Error ? failure.message : String(failure);
     }
@@ -158,7 +158,7 @@ function App() {
         if (!track) return;
         setError("");
         try {
-          setScore(suggestTimeline(track, selected));
+          setScore(suggestTimeline(track, selected, feedBpm));
           setTab("preview");
           document.getElementById("preview-tab")?.focus();
         } catch (failure) {
@@ -179,7 +179,7 @@ function App() {
       <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
         {tab === "preview" && (score !== undefined && file && track ? (
           <TimelinePreview file={file} text={score} lines={timeline?.lines ?? []}
-            events={describeMusicEvents(track, selected, timeline)} drills={selected} feedBpm={feedBpm}
+            events={describeMusicEvents(track, timeline)} drills={selected} feedBpm={feedBpm}
             validationError={timelineError} canDownload={Boolean(source)} onDownload={() => download(source)}
             onEdit={setScore} />
         ) : <section><p>Generate a timeline in Auto to preview it here.</p></section>)}

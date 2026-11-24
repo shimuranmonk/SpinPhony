@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The form-aware Auto slice passed the production build and 18 automated tests, including detected opening accents, repeated middle passages, quiet and short spans, fixed feed across different song tempos, and frozen-format validation. Chrome at 390 px also verified section generation and validated export from a synthetic WAV with the manual editor remaining independent. Real-track accuracy and physical feed timing remain pending.
+
 - The VALIDATE and ball-controls follow-up passed the production build and all 17 automated tests. Chrome at 390 px verified default inherited naming, the compact ball action row, missing-STOP feedback, successful validation and an exact live-preview download.
 
 - The sticky transport and SESSION follow-up passed the production build and all 16 automated tests. Chrome at 390 px verified the library default, fixed-height lists, cue-map scrolling, one-row SESSION fields, invalid-value download blocking and a validator-accepted download matching the live preview.

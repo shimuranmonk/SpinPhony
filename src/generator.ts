@@ -40,10 +40,8 @@ export function msyncHeader(track: Track, mode: "Auto Generate" | "MSYNC Editor"
   ].join("\n");
 }
 
-export function feedRate(track: Track, profile: Profile) {
-  const cap = profile.pace === "steady" ? 60 : 90;
-  const tempo = track.rhythm?.bpm ?? cap;
-  return Math.max(30, Math.round(tempo / Math.ceil(tempo / cap)));
+export function feedRate(profile: Profile) {
+  return profile.pace === "steady" ? 40 : 50;
 }
 
 export function exportTimeline(track: Track, cues: Cue[], profile: Profile, bpm: number) {

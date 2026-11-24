@@ -10,7 +10,7 @@ React, TypeScript and Vite provide a standalone static app. The browser hashes t
 
 Audio analysis finds hits from local loudness and brightness increases. It compares adjacent two-second windows to suggest boundaries at sustained changes in level or texture. Candidate boundaries are labeled Section 1, Section 2, and so on. Semantic verse, chorus and drop labels require human review. Marker times come from the audio and remain independent of drill choices and BPM.
 
-A profile chooses pace and racket hand. Estimated tempo only helps calculate feed rate within the pace cap. The generator suggests drills at detected hits. A hit emits an MSYNC `INLINE;ONCE` action. An assigned section schedules the requested number of cycles across its span and supersedes individual hit actions there while preserving their text markers. A repeat count that cannot fit at the current feed rate produces a line error. The score ends at the decoded audio duration.
+A profile chooses pace and racket hand. Auto uses provisional feed settings of 40 balls/min for Steady and 50 for Active, independent of the song BPM. Detections carry relative hit strength and section loudness, brightness and hit density. Auto assigns finite cycles to eligible sections and leaves detected hits visible. Similar middle passages can reuse a drill. Quiet or too-short passages can remain inactive. The same editable text parser distributes the section repeats into equal slots, emits `INLINE;ONCE`, and preserves section-over-hit precedence. Provisional scheduling targets leave at least two seconds between estimated cycle ends and subsequent starts. The score ends at the decoded audio duration.
 
 ## Drill provenance
 

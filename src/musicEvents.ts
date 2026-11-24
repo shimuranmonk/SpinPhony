@@ -1,5 +1,4 @@
 import type { Track } from "./rhythm.js";
-import type { Drill } from "./catalog.js";
 import type { readTimeline } from "./score.js";
 
 export type MusicEvent = {
@@ -10,7 +9,7 @@ export type MusicEvent = {
 };
 
 export function describeMusicEvents(
-  track: Track, selected: Drill[], timeline?: ReturnType<typeof readTimeline>,
+  track: Track, timeline?: ReturnType<typeof readTimeline>,
 ): MusicEvent[] {
   const events = new Map<number, { labels: string[]; reasons: string[] }>();
   function add(timeMs: number, label: string, reason: string) {
@@ -22,7 +21,8 @@ export function describeMusicEvents(
 
   for (const marker of track.markers) {
     if (marker.kind === "hit") {
-      add(marker.timeMs, "Detected hit", "A sharp rise in loudness or brightness suggested this accent.");
+      const strength = marker.strength === undefined ? "" : " Relative strength: " + Math.round(marker.strength * 100) + "%.";
+      add(marker.timeMs, "Detected hit", "A sharp rise in loudness or brightness suggested this accent." + strength);
     } else if (marker.timeMs === 0) {
       add(marker.timeMs, "Track start", "Marks the start of the first section.");
     } else {
@@ -35,8 +35,6 @@ export function describeMusicEvents(
   const sections = timeline?.lines.filter(line => line.kind === "SECTION") ?? [];
   const editedTimes = new Set(timeline?.lines.map(line => line.timeMs));
   const detected = new Set(track.markers.map(marker => marker.kind + ":" + marker.timeMs));
-  const suggested = new Map(track.markers.filter(marker => marker.kind === "hit" && marker.timeMs < track.durationMs)
-    .map((marker, index) => [marker.timeMs, selected[index % selected.length]]));
   for (const line of timeline?.lines ?? []) {
     if (line.kind === "STOP") continue;
     const kind = line.kind === "HIT" ? "hit" : "section";
@@ -58,11 +56,10 @@ export function describeMusicEvents(
     else if (cue?.command === "INLINE") {
       action = section?.drill
         ? cue.drill.name + " · Scheduled by the section assignment."
-        : cue.drill.name + (suggested.get(timeMs) === cue.drill
-          ? " · Matches the selected-drill rotation at this hit."
-          : " · Assigned to this hit in the edited timeline.");
-    } else if (section?.drill) action = "Candidate · " + section.drill.name + " continues across this section.";
+        : cue.drill.name + " · Assigned to this hit in the edited timeline.";
+    } else if (section?.drill) action = "Candidate · " + section.drill.name + " is scheduled by the section.";
     else if (!editedTimes.has(timeMs)) action = "Candidate · Kept in the detected events, with no timeline marker.";
+    if (section?.timeMs === timeMs && section.note && cue?.command !== "STOP") action += " " + section.note;
     return { timeMs, title: event.labels.join(" · "), detail: event.reasons.join(" "), action };
   }).sort((a, b) => a.timeMs - b.timeMs);
 }

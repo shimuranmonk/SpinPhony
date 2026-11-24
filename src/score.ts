@@ -2,6 +2,7 @@ import type { Drill } from "./catalog.js";
 import { timestamp, validateTrack } from "./generator.js";
 import type { Cue } from "./generator.js";
 import type { Track } from "./rhythm.js";
+import type { SectionProfile } from "./music.js";
 
 type TimelineLine = {
   timeMs: number;
@@ -12,16 +13,64 @@ type TimelineLine = {
   note: string;
 };
 
-export function suggestTimeline(track: Track, drills: Drill[]): string {
+function movement(drill: Drill) {
+  const drops = drill.balls.map(ball => ball.drop);
+  return Math.max(...drops) - Math.min(...drops);
+}
+
+function similar(a: SectionProfile, b: SectionProfile, peakLevel: number, peakBrightness: number) {
+  return Math.abs(a.hitsPerSecond - b.hitsPerSecond) <= .45
+    && Math.hypot((a.level - b.level) / Math.max(.001, peakLevel),
+      (a.brightness - b.brightness) / Math.max(.001, peakBrightness)) <= .15;
+}
+
+export function suggestTimeline(track: Track, drills: Drill[], bpm: number): string {
   validateTrack(track);
   if (!drills.length) throw new Error("Select at least one drill.");
-  let hit = 0;
-  let section = 0;
-  const lines = track.markers.filter(marker => marker.timeMs < track.durationMs).map(marker => {
-    const time = timestamp(marker.timeMs);
-    if (marker.kind === "section") return time + " | SECTION | - | Section " + ++section;
-    return time + " | HIT | " + drills[hit++ % drills.length].name;
+  const markers = track.markers.filter(marker => marker.timeMs < track.durationMs);
+  const sections = markers.filter(marker => marker.kind === "section");
+  const ranked = drills.filter(drill => drill.balls.length)
+    .sort((a, b) => movement(a) - movement(b) || Number(a.random) - Number(b.random) || a.balls.length - b.balls.length);
+  const peakLevel = Math.max(0, ...sections.map(section => section.profile?.level ?? 0));
+  const peakBrightness = Math.max(0, ...sections.map(section => section.profile?.brightness ?? 0));
+  const patterns: { profile: SectionProfile; drill: Drill }[] = [];
+  const assignments = new Map<number, string>();
+
+  sections.forEach((section, index) => {
+    const end = sections[index + 1]?.timeMs ?? track.durationMs;
+    const span = end - section.timeMs;
+    const label = "Section " + (index + 1);
+    const acoustic = section.profile;
+    if (acoustic && acoustic.level <= Math.max(.002, peakLevel * .25) && acoustic.hitsPerSecond < .6) {
+      assignments.set(section.timeMs, "- | " + label + " · Quiet passage, no feeds scheduled");
+      return;
+    }
+    const bookend = index === 0 || index === sections.length - 1;
+    const repeated = !bookend && acoustic
+      ? patterns.find(pattern => similar(pattern.profile, acoustic, peakLevel, peakBrightness)) : undefined;
+    const fits = ranked.filter(drill => drill.balls.length * 60000 / bpm + 2002 <= span);
+    const alternate = fits.find(drill => movement(drill) === movement(fits[0])
+      && drill.random === fits[0].random && drill.balls.length === fits[0].balls.length
+      && drill.balls.some((ball, i) => ball.drop !== fits[0].balls[i].drop || ball.spin !== fits[0].balls[i].spin));
+    const drill = repeated && fits.includes(repeated.drill) ? repeated.drill
+      : !bookend && acoustic && acoustic.level > peakLevel * .75 ? alternate ?? fits[0] : fits[0];
+    if (!drill) {
+      assignments.set(section.timeMs, "- | " + label + " · No complete cycle and gap fit");
+      return;
+    }
+    if (!bookend && acoustic && !repeated) patterns.push({ profile: acoustic, drill });
+    const cycleMs = drill.balls.length * 60000 / bpm;
+    // Equal slots leave at least two seconds without a planned delivery between finite cycles.
+    const cap = Math.floor(span / (cycleMs + 2002));
+    const target = bookend ? 3 : 6;
+    const count = Math.min(target, cap);
+    const decision = repeated?.drill === drill ? "Similar passage, same drill"
+      : index === 0 ? "Gentle opening" : bookend ? "Closing practice" : "Section practice";
+    assignments.set(section.timeMs, drill.name + " x" + count + " | " + label + " · " + decision);
   });
+
+  const lines = markers.map(marker => timestamp(marker.timeMs) + " | "
+    + (marker.kind === "section" ? "SECTION | " + assignments.get(marker.timeMs) : "HIT | -"));
   return [...lines, timestamp(track.durationMs) + " | STOP"].join("\n");
 }
 
