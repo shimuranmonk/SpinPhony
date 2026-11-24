@@ -38,7 +38,7 @@ export const blockOrder: Record<BlockKind, number> = { CDRILL: 0, FLAVOR: 1, IDL
 const clean = (text: string) => text.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/gu, " ").trim();
 const alias = (name: string, prefix: string) => name.trim().toUpperCase().replace(new RegExp("^" + prefix + "_"), "");
 const validAlias = /^[A-Z][A-Z0-9_]{0,35}$/;
-const spinLimits = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 9, 8, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+export const spinLimits = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 9, 8, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 const fields = ["SPEED", "SPIN", "TYPE", "HEIGHT", "DROP", "BPM", "REPS"] as const;
 
 export function blockLabel(block: Block) {
@@ -51,7 +51,7 @@ export function drillName(block: Block) {
   return clean(block.name) || block.inheritedName || "Custom drill";
 }
 
-function checkField(key: BallField, value: number) {
+export function checkField(key: BallField, value: number) {
   const [min, max, step] = ballFields[key];
   if (!Number.isFinite(value) || value < min || value > max || !Number.isInteger((value - min) / step)) {
     throw new Error(key + " must be between " + min + " and " + max + " in steps of " + step + ".");

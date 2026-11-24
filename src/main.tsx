@@ -1,7 +1,9 @@
 import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { drills, starterDrills } from "./catalog.js";
 import type { Drill } from "./catalog.js";
+import { novaPatterns, pattern, prepareAutoDrill, readCustomDrills, saveCustomDrill, skillLimits, validateAutoBalls } from "./autoDrills.js";
+import type { Skill } from "./autoDrills.js";
+import { AutoBallEditor } from "./AutoBallEditor.js";
 import { exportTimeline, feedRate, tagline, timestamp } from "./generator.js";
 import type { Profile } from "./generator.js";
 import { readTimeline, suggestTimeline } from "./score.js";
@@ -9,7 +11,7 @@ import { describeMusicEvents } from "./musicEvents.js";
 import { TimelinePreview } from "./TimelinePreview.js";
 import { ManualEditor } from "./ManualEditor.js";
 import { defaultSession } from "./manualScore.js";
-import type { Block } from "./manualScore.js";
+import type { Ball, Block } from "./manualScore.js";
 import { analyzeFile } from "./rhythm.js";
 import type { Track } from "./rhythm.js";
 import "./style.css";
@@ -23,11 +25,13 @@ function App() {
   const [track, setTrack] = useState<Track>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [selected, setSelected] = useState<Drill[]>(() => starterDrills.slice(0, 1));
+  const [selected, setSelected] = useState<Drill[]>(() => novaPatterns.filter(drill => drill.name === "Forehand Drive"));
+  const [custom, setCustom] = useState(readCustomDrills);
+  const [ballEdits, setBallEdits] = useState<Record<string, Ball[]>>({});
   const [drillQuery, setDrillQuery] = useState("");
-  const [drillSource, setDrillSource] = useState("");
+  const [libraryTab, setLibraryTab] = useState<"Nova Drills" | "Custom">("Nova Drills");
   const [profile, setProfile] = useState<Profile>({
-    pace: "steady", handedness: "right",
+    pace: "steady", handedness: "right", skill: "Novice",
   });
   const [score, setScore] = useState<string>();
   const request = useRef(0);
@@ -37,6 +41,7 @@ function App() {
     setFile(file);
     setTrack(undefined);
     setScore(undefined);
+    setBallEdits({});
     setBlocks([]);
     setError("");
 
@@ -56,6 +61,7 @@ function App() {
 
   function configure<K extends keyof Profile>(key: K, value: Profile[K]) {
     setScore(undefined);
+    setBallEdits({});
     setProfile(previous => ({ ...previous, [key]: value }));
   }
 
@@ -73,17 +79,34 @@ function App() {
   let source = "";
   let timeline: ReturnType<typeof readTimeline> | undefined;
   const feedBpm = feedRate(profile);
+  const skill = profile.skill ?? "Novice";
+  const prepared = selected.map(drill => {
+    const plan = prepareAutoDrill(drill, profile);
+    const settings = ballEdits[drill.id];
+    return settings ? { ...plan, parameters: settings, balls: pattern(settings) } : plan;
+  });
   const query = drillQuery.trim().toLowerCase();
-  const visibleDrills = drills.filter(drill =>
-    (!drillSource || drill.category === drillSource)
-    && (drill.name + " " + drill.description).toLowerCase().includes(query));
+  const library = libraryTab === "Nova Drills" ? novaPatterns : custom;
+  const visibleDrills = library.filter(drill => (drill.name + " " + drill.description).toLowerCase().includes(query));
   if (track && score !== undefined) {
     try {
-      timeline = readTimeline(score, track.durationMs, selected, feedBpm);
+      for (const drill of prepared) if (drill.parameters) validateAutoBalls(drill.parameters, skill);
+      timeline = readTimeline(score, track.durationMs, prepared, feedBpm);
       if (timeline.cues.length > 1) source = exportTimeline(track, timeline.cues, profile, feedBpm);
       else timelineError = "No complete practice cycle was scheduled. Assign a drill to a suitable hit or section to enable download.";
     } catch (failure) {
       timelineError = failure instanceof Error ? failure.message : String(failure);
+    }
+  }
+
+  function saveDrill(drill: Drill, name: string) {
+    try {
+      if (!drill.parameters) return "This drill has no editable ball settings.";
+      validateAutoBalls(drill.parameters, skill);
+      setCustom(saveCustomDrill(custom, name, drill.parameters, drill.random));
+      return "Saved to Training Library → Custom.";
+    } catch (failure) {
+      return failure instanceof Error ? failure.message : String(failure);
     }
   }
 
@@ -124,14 +147,12 @@ function App() {
         </section>
         <section>
           <h2>Training library</h2>
-          <div className="fields">
-            <label>Search drills<input type="search" value={drillQuery} onChange={event => setDrillQuery(event.target.value)} /></label>
-            <div className="drill-source"><label htmlFor="drill-source">Source</label>
-            <select id="drill-source" value={drillSource} onChange={event => setDrillSource(event.target.value)}>
-              <option value="">All sources</option><option>Nova S Pro manual</option><option>Coaching drill</option>
-            </select></div>
+          <div className="tabs" role="group" aria-label="Training library categories">
+            {(["Nova Drills", "Custom"] as const).map(item => <button type="button" key={item}
+              aria-pressed={libraryTab === item} onClick={() => { setLibraryTab(item); setDrillQuery(""); }}>{item}</button>)}
           </div>
-          <p className="hint" role="status">{selected.length} selected · {visibleDrills.length} of {drills.length} drills shown</p>
+          <label>Search drills<input type="search" value={drillQuery} onChange={event => setDrillQuery(event.target.value)} /></label>
+          <p className="hint" role="status">{selected.length} selected · {visibleDrills.length} of {library.length} drills shown</p>
           <div className="drill-library" role="group" aria-label="Available drills" tabIndex={0}>
           {visibleDrills.length === 0 && <p>No matching drills.</p>}
           {visibleDrills.map(drill => (
@@ -140,13 +161,14 @@ function App() {
                 <input type="checkbox" checked={selected.includes(drill)} onChange={event => {
                   setScore(undefined);
                   const checked = event.target.checked;
-                  setSelected(previous => [...starterDrills, ...drills.filter(item => !starterDrills.includes(item))]
-                    .filter(item => item === drill ? checked : previous.includes(item)));
+                  setSelected(previous => checked ? [...previous, drill] : previous.filter(item => item.id !== drill.id));
                 }} />
-                <span><strong>{drill.name}</strong><small>{drill.description}</small></span>
+                <span><strong>{drill.name}</strong><small className="drill-description">{drill.description}</small></span>
               </label>
-              {drill.category === "Nova S Pro manual" ? <small>{drill.category}</small>
-                : <a href={drill.source} target="_blank" rel="noreferrer">{drill.category}</a>}
+              <div className="drill-parameters">{drill.parameters?.map((ball, index) =>
+                <small key={index}>{drill.parameters!.length > 1 && (index + 1) + ". "}
+                  SD: {ball.SPEED} · SP: {ball.SPIN} · HT: {ball.HEIGHT} · DR: {ball.DROP} · TP: {ball.TYPE.toUpperCase()}
+                </small>)}</div>
             </div>
           ))}
           </div>
@@ -158,7 +180,8 @@ function App() {
         if (!track) return;
         setError("");
         try {
-          setScore(suggestTimeline(track, selected, feedBpm));
+          for (const drill of prepared) if (drill.parameters) validateAutoBalls(drill.parameters, skill);
+          setScore(suggestTimeline(track, prepared, feedBpm));
           setTab("preview");
           document.getElementById("preview-tab")?.focus();
         } catch (failure) {
@@ -168,6 +191,9 @@ function App() {
         <section>
           <h2>Training profile</h2>
           <div className="fields">
+            <label>Player skill<select value={skill} onChange={event => configure("skill", event.target.value as Skill)}>
+              {Object.keys(skillLimits).map(level => <option key={level}>{level}</option>)}
+            </select></label>
             <label>Pace<select value={profile.pace} onChange={event => configure("pace", event.target.value as Profile["pace"])}><option value="steady">Steady</option><option value="active">Active</option></select></label>
             <label>Racket hand<select value={profile.handedness} onChange={event => configure("handedness", event.target.value as Profile["handedness"])}><option value="right">Right</option><option value="left">Left</option></select></label>
           </div>
@@ -178,10 +204,12 @@ function App() {
       </form>
       <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
         {tab === "preview" && (score !== undefined && file && track ? (
-          <TimelinePreview file={file} text={score} lines={timeline?.lines ?? []}
-            events={describeMusicEvents(track, timeline)} drills={selected} feedBpm={feedBpm}
+          <><TimelinePreview file={file} text={score} lines={timeline?.lines ?? []}
+            events={describeMusicEvents(track, timeline)} drills={prepared} feedBpm={feedBpm}
             validationError={timelineError} canDownload={Boolean(source)} onDownload={() => download(source)}
             onEdit={setScore} />
+          <AutoBallEditor drills={prepared} skill={skill} left={profile.handedness === "left"}
+            onEdit={(id, balls) => setBallEdits(previous => ({ ...previous, [id]: balls }))} onSave={saveDrill} /></>
         ) : <section><p>Generate a timeline in Auto to preview it here.</p></section>)}
       </div>
       {tab === "manual" && <div id="manual-panel" role="tabpanel" aria-labelledby="manual-tab">

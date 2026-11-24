@@ -5,11 +5,26 @@ import { exportTimeline, feedRate, validateTrack } from "../.test-build/generato
 import { estimateRhythm } from "../.test-build/rhythm.js";
 import { detectMusicMarkers } from "../.test-build/music.js";
 import { readTimeline, suggestTimeline } from "../.test-build/score.js";
+import { novaPatterns, prepareAutoDrill, validateAutoBalls } from "../.test-build/autoDrills.js";
 import { compileManualScore, initialBall, loadBuiltInBalls } from "../.test-build/manualScore.js";
 
 const track = { filename: "pulse.wav", durationMs: 24000, sha256: "a".repeat(64), rhythm: { bpm: 120 }, markers: [{ timeMs: 0, kind: "section" }, { timeMs: 250, kind: "hit" }, { timeMs: 1320, kind: "hit" }] };
 const rhythm = { bpm: 120, firstBeatMs: 250 };
 const profile = { pace: "steady", handedness: "right" };
+
+test("Auto uses Nova Level 1 as its starting preset and enforces player and robot limits", () => {
+  const base = novaPatterns.find(drill => drill.name === "Forehand Drive");
+  assert.equal(new Set(novaPatterns.map(drill => drill.id)).size, novaPatterns.length);
+  const novice = prepareAutoDrill(base, { ...profile, skill: "Novice" });
+  assert.deepEqual(novice.parameters, base.parameters);
+  const amateur = prepareAutoDrill(base, { ...profile, skill: "Amateur" });
+  assert.equal(amateur.parameters[0].SPEED, 3.5);
+  assert.throws(() => validateAutoBalls([{ ...amateur.parameters[0], SPEED: 5 }], "Amateur"), /Amateur limit/);
+  assert.throws(() => validateAutoBalls([{ ...amateur.parameters[0], SPEED: 8, SPIN: 5 }], "Pro"), /robot limit/);
+  const edited = { ...amateur, parameters: [{ ...amateur.parameters[0], HEIGHT: 35, DROP: 4, REPS: 2 }] };
+  const result = compile([edited], profile);
+  assert.match(exportTimeline(track, result.cues, profile, result.feedBpm), /HEIGHT=35;DROP=4;BPM=54;REPS=2/);
+});
 
 const manualBlocks = [
   { id: 1, timeMs: 0, kind: "CDRILL", name: "Loopers", balls: [initialBall, { ...initialBall, BPM: 70 }], random: false, note: "Start" },

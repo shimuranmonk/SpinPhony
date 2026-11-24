@@ -29,6 +29,9 @@ function activeIndexAt(markers: { timeMs: number }[], seconds: number) {
 
 export function TimelinePreview(props: Props) {
   const { file, text, lines, events, drills, feedBpm, validationError, canDownload, onDownload, onEdit } = props;
+  const rates = drills.flatMap(drill => drill.parameters?.map(ball => ball.BPM) ?? [feedBpm]).filter(Number.isFinite);
+  const minRate = Math.min(...rates);
+  const maxRate = Math.max(...rates);
   const audio = useRef<HTMLAudioElement>(null);
   const windowRef = useRef<HTMLTextAreaElement>(null);
   const eventListRef = useRef<HTMLOListElement>(null);
@@ -138,7 +141,8 @@ export function TimelinePreview(props: Props) {
         setActiveEvent(events.length - 1);
       }} />
       <div className="result-header">
-        <div><h2 id="timeline">Timeline</h2><p>{lines.length} markers · {feedBpm} balls/min</p></div>
+        <div><h2 id="timeline">Timeline</h2><p>{lines.length} markers{rates.length > 0
+          && (" · " + (minRate === maxRate ? minRate : minRate + "–" + maxRate) + " balls/min")}</p></div>
         <button disabled={!canDownload} onClick={onDownload}>Download .msync</button>
       </div>
       <p id="timeline-help" className="hint">

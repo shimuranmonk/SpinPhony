@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The skill-aware Auto follow-up passed the production build and 20 tests. Chrome at 390 px verified the library summaries, Amateur generation, Height/Drop/Reps editing, valid MSYNC export, local persistence across reload, and reuse of an adjusted drill in a fresh generation. Physical placement was not tested.
+
 - The long-section fallback passed the production build and 19 tests. Its synthetic Footloose-length regression reproduces the one-section input and verifies 125 Forehand Drive cues, multiple practice blocks, and final recovery. The original recording and robot delivery were not tested.
 
 - The form-aware Auto slice passed the production build and 18 automated tests, including detected opening accents, repeated middle passages, quiet and short spans, fixed feed across different song tempos, and frozen-format validation. Chrome at 390 px also verified section generation and validated export from a synthetic WAV with the manual editor remaining independent. Real-track accuracy and physical feed timing remain pending.

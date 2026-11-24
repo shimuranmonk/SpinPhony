@@ -1,9 +1,11 @@
 import type { Drill } from "./catalog.js";
+import type { Ball } from "./manualScore.js";
 import type { Track } from "./rhythm.js";
 
 export type Profile = {
   pace: "steady" | "active";
   handedness: "right" | "left";
+  skill?: "Novice" | "Amateur" | "Expert" | "Pro";
 };
 
 export type Cue = { note?: string } & (
@@ -44,6 +46,18 @@ export function feedRate(profile: Profile) {
   return profile.pace === "steady" ? 40 : 50;
 }
 
+export function cycleDuration(drill: Drill, bpm: number) {
+  return drill.parameters?.reduce((total, ball) => total + ball.REPS * 60000 / ball.BPM, 0)
+    ?? drill.balls.length * 60000 / bpm;
+}
+
+export function drillParameters(drill: Drill, bpm: number): Ball[] {
+  return drill.parameters ?? drill.balls.map(ball => ({
+    SPEED: ball.depth === "short" ? 3 : 5, SPIN: 2, TYPE: ball.spin, HEIGHT: 20,
+    DROP: ball.drop, BPM: bpm, REPS: 1,
+  }));
+}
+
 export function exportTimeline(track: Track, cues: Cue[], profile: Profile, bpm: number) {
   validateTrack(track);
   const { filename, sha256, durationMs } = track;
@@ -74,11 +88,9 @@ export function exportTimeline(track: Track, cues: Cue[], profile: Profile, bpm:
     "[INLINE:" + drill.id + "]",
     "NAME=" + drill.name,
     "RANDOM=" + drill.random,
-    ...drill.balls.map((ball, index) => {
-      const speed = ball.depth === "short" ? 3 : 5;
-      return "BALL=" + (index + 1) + ";SPEED=" + speed + ";SPIN=2;TYPE=" + ball.spin
-        + ";HEIGHT=20;DROP=" + (ball.drop * direction) + ";BPM=" + bpm + ";REPS=1";
-    }),
+    ...drillParameters(drill, bpm).map((ball, index) =>
+      "BALL=" + (index + 1) + ";SPEED=" + ball.SPEED + ";SPIN=" + ball.SPIN + ";TYPE=" + ball.TYPE
+        + ";HEIGHT=" + ball.HEIGHT + ";DROP=" + (ball.DROP * direction) + ";BPM=" + ball.BPM + ";REPS=" + ball.REPS),
   ].join("\n"));
   const lines = cues.flatMap(cue => {
     const label = cue.command === "INLINE" ? cue.drill.name

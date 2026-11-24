@@ -1,5 +1,5 @@
 import type { Drill } from "./catalog.js";
-import { timestamp, validateTrack } from "./generator.js";
+import { cycleDuration, timestamp, validateTrack } from "./generator.js";
 import type { Cue } from "./generator.js";
 import type { Track } from "./rhythm.js";
 import type { SectionProfile } from "./music.js";
@@ -82,7 +82,7 @@ export function suggestTimeline(track: Track, drills: Drill[], bpm: number): str
     const bookend = index === 0 || index === sections.length - 1;
     const repeated = !bookend && acoustic
       ? patterns.find(pattern => similar(pattern.profile, acoustic, peakLevel, peakBrightness)) : undefined;
-    const fits = ranked.filter(drill => drill.balls.length * 60000 / bpm + 2002 <= span);
+    const fits = ranked.filter(drill => cycleDuration(drill, bpm) + 2002 <= span);
     const alternate = fits.find(drill => movement(drill) === movement(fits[0])
       && drill.random === fits[0].random && drill.balls.length === fits[0].balls.length
       && drill.balls.some((ball, i) => ball.drop !== fits[0].balls[i].drop || ball.spin !== fits[0].balls[i].spin));
@@ -93,7 +93,7 @@ export function suggestTimeline(track: Track, drills: Drill[], bpm: number): str
       return;
     }
     if (!bookend && acoustic && !repeated) patterns.push({ profile: acoustic, drill });
-    const cycleMs = drill.balls.length * 60000 / bpm;
+    const cycleMs = cycleDuration(drill, bpm);
     if (span >= longSectionMs && Math.ceil(cycleMs) + 1 <= workBlockMs) {
       scheduleLongSection(assignments, section.timeMs, end, drill, cycleMs,
         index === 0, index === sections.length - 1);
@@ -155,7 +155,7 @@ export function readTimeline(text: string, durationMs: number, drills: Drill[], 
     if (!section.drill) return;
     const end = sections[index + 1]?.timeMs ?? durationMs;
     const slot = (end - section.timeMs) / section.count;
-    if (slot < section.drill.balls.length * 60000 / bpm) {
+    if (!Number.isFinite(slot) || slot < cycleDuration(section.drill, bpm)) {
       throw new Error("Line " + (section.line + 1) + ". This drill and repeat count do not fit before the next section.");
     }
     covered.push({ start: section.timeMs, end });
@@ -176,5 +176,13 @@ export function readTimeline(text: string, durationMs: number, drills: Drill[], 
       cues.push({ timeMs: line.timeMs, command: "INLINE", drill: line.drill, once: true, note: line.note });
     }
   }
-  return { lines, cues: cues.sort((a, b) => a.timeMs - b.timeMs) };
+  cues.sort((a, b) => a.timeMs - b.timeMs);
+  for (const [index, cue] of cues.entries()) {
+    if (cue.command !== "INLINE" || !cue.drill.parameters) continue;
+    const next = cues[index + 1];
+    if (next && next.timeMs - cue.timeMs + 1 < cycleDuration(cue.drill, bpm)) {
+      throw new Error("The drill at " + timestamp(cue.timeMs) + " does not fit before the next cue. Adjust its ball settings or regenerate.");
+    }
+  }
+  return { lines, cues };
 }
