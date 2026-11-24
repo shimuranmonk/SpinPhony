@@ -176,6 +176,22 @@ test("Auto reuses recognizable passages, preserves quiet gaps, and keeps feed in
   }
 });
 
+test("a 3:47 single-section track schedules full work blocks with recovery instead of three isolated balls", () => {
+  const footlooseLength = { ...track, durationMs: 227207, markers: [
+    { kind: "section", timeMs: 0, profile: { level: .14, brightness: .08, hitsPerSecond: 2 } },
+    { kind: "hit", timeMs: 1200, strength: .8 },
+  ] };
+  const { cues, lines, feedBpm } = compile([drills[0]], { ...profile, pace: "active" }, footlooseLength);
+  const deliveries = cues.filter(cue => cue.command === "INLINE");
+  assert.equal(deliveries.length, 125);
+  assert.ok(deliveries.every(cue => cue.once && cue.drill === drills[0]));
+  assert.ok(lines.filter(line => line.note.includes("Practice block")).length > 1);
+  assert.match(lines.at(-2).note, /Final recovery/);
+  assert.equal(lines.at(-2).timeMs, 222207);
+  assert.ok(deliveries.every((cue, i) => i === 0 || cue.timeMs - deliveries[i - 1].timeMs <= 12000));
+  assert.match(exportTimeline(footlooseLength, cues, profile, feedBpm), /03:47\.207 STOP\n$/);
+});
+
 test("a section assignment distributes exactly five cycles and preserves hit lines", () => {
   const start = compile(drills);
   const edited = start.text.replace(/SECTION \| [^\n]+/, "SECTION | Forehand drive x5 | Chorus");

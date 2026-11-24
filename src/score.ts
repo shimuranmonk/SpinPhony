@@ -24,6 +24,40 @@ function similar(a: SectionProfile, b: SectionProfile, peakLevel: number, peakBr
       (a.brightness - b.brightness) / Math.max(.001, peakBrightness)) <= .15;
 }
 
+const longSectionMs = 45000;
+const workBlockMs = 20000;
+const recoveryMs = 8000;
+const finalRecoveryMs = 5000;
+
+function scheduleLongSection(
+  assignments: Map<number, string>, start: number, end: number, drill: Drill, cycleMs: number,
+  opening: boolean, closing: boolean,
+) {
+  // These are provisional planning budgets. Whole, finite cycles use the same text compiler as other sections.
+  const slotMs = Math.ceil(cycleMs) + 1;
+  const closingCycles = closing ? Math.min(3, Math.floor(workBlockMs / slotMs)) : 0;
+  const closingStart = end - (closing ? closingCycles * slotMs + finalRecoveryMs : 0);
+  const workEnd = closingStart - recoveryMs;
+  let cursor = start;
+
+  function work(count: number, label: string) {
+    assignments.set(cursor, drill.name + " x" + count + " | Auto · " + label);
+    cursor += count * slotMs;
+    assignments.set(cursor, "- | Auto · Recovery, no feeds scheduled");
+    cursor += recoveryMs;
+  }
+
+  if (opening) work(Math.min(3, Math.floor(workBlockMs / slotMs)), "Opening practice");
+  while (cursor + slotMs <= workEnd) {
+    const count = Math.floor(Math.min(workBlockMs, workEnd - cursor) / slotMs);
+    work(count, "Practice block");
+  }
+  if (closingCycles > 0) {
+    assignments.set(closingStart, drill.name + " x" + closingCycles + " | Auto · Closing practice");
+    assignments.set(end - finalRecoveryMs, "- | Auto · Final recovery, no feeds scheduled");
+  }
+}
+
 export function suggestTimeline(track: Track, drills: Drill[], bpm: number): string {
   validateTrack(track);
   if (!drills.length) throw new Error("Select at least one drill.");
@@ -60,6 +94,11 @@ export function suggestTimeline(track: Track, drills: Drill[], bpm: number): str
     }
     if (!bookend && acoustic && !repeated) patterns.push({ profile: acoustic, drill });
     const cycleMs = drill.balls.length * 60000 / bpm;
+    if (span >= longSectionMs && Math.ceil(cycleMs) + 1 <= workBlockMs) {
+      scheduleLongSection(assignments, section.timeMs, end, drill, cycleMs,
+        index === 0, index === sections.length - 1);
+      return;
+    }
     // Equal slots leave at least two seconds without a planned delivery between finite cycles.
     const cap = Math.floor(span / (cycleMs + 2002));
     const target = bookend ? 3 : 6;
@@ -69,8 +108,10 @@ export function suggestTimeline(track: Track, drills: Drill[], bpm: number): str
     assignments.set(section.timeMs, drill.name + " x" + count + " | " + label + " · " + decision);
   });
 
-  const lines = markers.map(marker => timestamp(marker.timeMs) + " | "
-    + (marker.kind === "section" ? "SECTION | " + assignments.get(marker.timeMs) : "HIT | -"));
+  const lines = [
+    ...Array.from(assignments, ([timeMs, assignment]) => ({ timeMs, text: "SECTION | " + assignment })),
+    ...markers.filter(marker => marker.kind === "hit").map(marker => ({ timeMs: marker.timeMs, text: "HIT | -" })),
+  ].sort((a, b) => a.timeMs - b.timeMs).map(line => timestamp(line.timeMs) + " | " + line.text);
   return [...lines, timestamp(track.durationMs) + " | STOP"].join("\n");
 }
 

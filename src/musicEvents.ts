@@ -39,7 +39,11 @@ export function describeMusicEvents(
     if (line.kind === "STOP") continue;
     const kind = line.kind === "HIT" ? "hit" : "section";
     if (!detected.has(kind + ":" + line.timeMs)) {
-      add(line.timeMs, line.kind === "HIT" ? "Edited hit" : "Edited section", "This marker was added or moved in the timeline.");
+      if (line.kind === "SECTION" && line.note.startsWith("Auto · ")) {
+        add(line.timeMs, "Planned boundary", "Auto placed a practice or recovery boundary within a musical section.");
+      } else {
+        add(line.timeMs, line.kind === "HIT" ? "Edited hit" : "Edited section", "This marker was added or moved in the timeline.");
+      }
     }
   }
   for (const cue of timeline?.cues ?? []) {

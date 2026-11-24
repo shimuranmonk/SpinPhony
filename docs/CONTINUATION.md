@@ -1,5 +1,7 @@
 # SpinPhony continuation
 
+- **Long-section Auto fallback** · For active passages at least 45 seconds long, Auto schedules finite practice blocks up to 20 seconds, with at least eight seconds of planned recovery between blocks. A 3:47 one-section Forehand Drive test at 50 balls/min schedules 125 feeds. The planning values and physical timing remain provisional.
+
 - **Form-aware Auto slice (2026-11-25)** · Auto assigns finite repeat cycles by section, retains hit candidates, and uses feed settings independent of music BPM. The manual MSYNC Editor still authors its own score. Validate the provisional acoustic thresholds and workload choices against annotated tracks before adding motif recognition or more detailed coaching.
 
 - **MSYNC validation** · The editor validates its live text against the bundled frozen v1 parser and validator from Nova Prime revision `0add69de48c1720f61da6d807ee23e88e979d69c`. It reports file issues alongside draft issues. Built-in ball imports supply an unnamed drill’s fallback name.
