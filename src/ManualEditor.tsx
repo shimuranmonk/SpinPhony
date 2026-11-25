@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { timestamp } from "./generator.js";
 import { nativeDrills } from "./nativeDrills.js";
-import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, drillName, flavorFields, initialBall, loadBuiltInBalls, maxBalls, sessionFields } from "./manualScore.js";
+import { ballFields, blockKinds, blockLabel, blockOrder, drillName, flavorFields, initialBall, loadBuiltInBalls, maxBalls, sessionFields } from "./manualScore.js";
 import { validateMsyncSource } from "./msync-v1/validator.js";
-import { CueMap } from "./CueMap.js";
+import { blocksToCueMap, CueMap } from "./CueMap.js";
 import { musicGuidance } from "./musicGuidance.js";
 import { MsyncTextPreview } from "./MsyncTextPreview.js";
-import type { Ball, BallField, Block, BlockKind, SessionField, SessionSettings } from "./manualScore.js";
+import type { Ball, BallField, Block, BlockKind, compileManualScore, SessionField, SessionSettings } from "./manualScore.js";
 import type { Track } from "./rhythm.js";
 
 type Props = {
-  file: File; track: Track;
+  file: File; track: Track; draft: ReturnType<typeof compileManualScore>;
   blocks: Block[]; onChange: (blocks: Block[]) => void; onDownload: (source: string) => void;
   session: SessionSettings; onSessionChange: (session: SessionSettings) => void;
   onSaveCustom: (name: string, balls: Ball[], random: boolean) => string;
@@ -25,12 +25,13 @@ function showCurrentRow(list: HTMLUListElement | null) {
   else if (item.bottom > bounds.bottom) list.scrollTop += item.bottom - bounds.bottom;
 }
 
-export function ManualEditor({ file, track, blocks, onChange, onDownload, session, onSessionChange, onSaveCustom }: Props) {
+export function ManualEditor({ file, track, draft, blocks, onChange, onDownload, session, onSessionChange, onSaveCustom }: Props) {
   const [url, setUrl] = useState("");
   const [kind, setKind] = useState<BlockKind>("CDRILL");
   const [selected, setSelected] = useState<number>();
   const [playhead, setPlayhead] = useState(0);
   const [editNotice, setEditNotice] = useState("");
+  const [drillSource, setDrillSource] = useState<"builtin" | "inline">("builtin");
   const [saveDraft, setSaveDraft] = useState<{ id: number; name: string; status: string }>();
   const [ballSelection, setBallSelection] = useState<{ blockId: number; index: number }>();
   const [validation, setValidation] = useState<{ key: string; errors: string[]; warnings: string[] }>();
@@ -59,7 +60,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
   const currentMarker = markers.reduce((current, marker, index) => marker.timeMs <= playhead ? index : current, -1);
   const latest = sorted.filter(item => item.timeMs <= playhead).at(-1);
   const currentBlock = latest && block?.timeMs === latest.timeMs ? block : latest;
-  const { source, issues } = compileManualScore(track, blocks, session);
+  const { source, issues, inlineDrills } = draft;
   const validationKey = JSON.stringify([source, issues]);
   const currentValidation = validation?.key === validationKey ? validation : undefined;
   const ballIndex = block && ballSelection?.blockId === block.id
@@ -137,14 +138,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
     setPlayhead(timeMs);
   }
 
-  const stopTime = sorted.find(item => item.kind === "STOP" && Number.isFinite(item.timeMs))?.timeMs ?? track.durationMs;
-  const scheduled = sorted.filter(item => Number.isFinite(item.timeMs) && item.timeMs >= 0
-    && item.timeMs <= (item.kind === "FLAG" ? track.durationMs : Math.min(stopTime, track.durationMs)));
-  const mapEntries = scheduled.map(item => ({
-    id: item.id, timeMs: item.timeMs, kind: item.kind, label: blockLabel(item),
-    durationMs: item.kind === "CDRILL" && item.once ? item.balls.reduce((total, ball) =>
-      total + (ball.BPM > 0 ? ball.REPS * 60000 / ball.BPM : 0), 0) : undefined,
-  }));
+  const mapEntries = blocksToCueMap(blocks, track.durationMs);
 
   return <section className="manual-editor">
     <h2>MSYNC Editor</h2>
@@ -226,26 +220,44 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
         </div>
         {block.balls.map((ball, index) => <details key={index}>
           <summary onClick={() => setBallSelection({ blockId: block.id, index })}>BALL {index + 1}</summary>
-          <label>Load built-in drill starting at BALL {index + 1}
-            <select aria-label={"Load built-in drill starting at BALL " + (index + 1)} value="" onChange={event => {
-              if (!event.target.value) return;
-              const [key, level] = event.target.value.split(":");
-              try {
-                const loaded = loadBuiltInBalls(block.balls, index, key, Number(level));
-                const inheritedName = index === 0 || !block.inheritedName
-                  ? nativeDrills.find(drill => drill.key === key)?.name : block.inheritedName;
-                update({ balls: loaded, inheritedName });
-                setBallSelection({ blockId: block.id, index });
-              } catch (error) {
-                setEditNotice(error instanceof Error ? error.message : String(error));
-              }
-            }}>
-              <option value="">Choose a drill and level</option>
-              {nativeDrills.map(drill => <optgroup key={drill.key} label={drill.name}>
+          <div className="drill-source-options" role="group" aria-label={"Drill source for BALL " + (index + 1)}>
+            <label><input type="radio" name={"drill-source-" + block.id + "-" + index}
+              checked={drillSource === "builtin"} onChange={() => setDrillSource("builtin")} />Built-in drills</label>
+            <label><input type="radio" name={"drill-source-" + block.id + "-" + index}
+              checked={drillSource === "inline"} onChange={() => setDrillSource("inline")} />Existing INLINE drills</label>
+          </div>
+          <label>{drillSource === "builtin" ? "Load built-in drill starting at BALL " + (index + 1) : "Reuse INLINE drill"}
+            <select aria-label={drillSource === "builtin" ? "Load built-in drill starting at BALL " + (index + 1) : "Reuse INLINE drill"}
+              value="" onChange={event => {
+                const choice = event.target.value;
+                if (!choice) return;
+                if (drillSource === "inline") {
+                  const existing = inlineDrills.find(item => item.alias === choice);
+                  if (!existing) return;
+                  update({ name: existing.title, inheritedName: undefined,
+                    random: existing.block.random, balls: existing.block.balls.map(ball => ({ ...ball })) });
+                  setBallSelection({ blockId: block.id, index: 0 });
+                  return;
+                }
+                const [key, level] = choice.split(":");
+                try {
+                  const loaded = loadBuiltInBalls(block.balls, index, key, Number(level));
+                  const inheritedName = index === 0 || !block.inheritedName
+                    ? nativeDrills.find(drill => drill.key === key)?.name : block.inheritedName;
+                  update({ balls: loaded, inheritedName });
+                  setBallSelection({ blockId: block.id, index });
+                } catch (error) {
+                  setEditNotice(error instanceof Error ? error.message : String(error));
+                }
+              }}>
+              <option value="">{drillSource === "builtin" ? "Choose a drill and level" : "Choose an INLINE definition"}</option>
+              {drillSource === "builtin" ? nativeDrills.map(drill => <optgroup key={drill.key} label={drill.name}>
                 {drill.levels.map((_, level) => <option key={level} value={drill.key + ":" + (level + 1)}>
                   {drill.name} · Level {level + 1}
                 </option>)}
-              </optgroup>)}
+              </optgroup>) : inlineDrills.map(item => <option key={item.alias} value={item.alias}>
+                {item.title} · {item.alias}
+              </option>)}
             </select>
           </label>
           <div className="manual-ball">

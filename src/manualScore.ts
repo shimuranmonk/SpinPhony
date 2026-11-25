@@ -74,6 +74,8 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
   validateTrack(track);
   const definitions = new Map<string, string>();
   const inlineNames = new Map<string, string>();
+  const inlineDrills: { alias: string; title: string; block: Block }[] = [];
+  const acceptedBlocks: Block[] = [];
   const cues: string[] = [];
   const issues: string[] = [];
   const sessionLines = (Object.keys(sessionFields) as SessionField[]).map(key => {
@@ -104,6 +106,7 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
     const { kind, timeMs, seconds, id } = block;
     const time = Number.isInteger(timeMs) && timeMs >= 0 ? timestamp(timeMs) : "Invalid time";
     const label = clean(blockLabel(block));
+    if (kind === "CDRILL" && cues.length) cues.push("");
     cues.push("# " + label + (block.note.trim() ? " — " + clean(block.note) : ""));
     try {
       if (!Number.isInteger(timeMs) || timeMs < 0 || timeMs > track.durationMs || (timeMs === track.durationMs && kind !== "STOP")) {
@@ -133,6 +136,7 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
           name = "INL_" + (/^[A-Z]/.test(suffix) ? suffix : "DRILL_" + suffix) + "_" + id;
           define(definitions, name, ["# Drill: " + title, "[INLINE:" + name + "]", body].join("\n"));
           inlineNames.set(body, name);
+          inlineDrills.push({ alias: name, title, block });
         }
         command = "INLINE=" + name + (block.once ? ";ONCE" : "");
         active = block;
@@ -159,6 +163,7 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
         }
       }
       cues.push(time + " " + command);
+      acceptedBlocks.push(block);
       previous = block;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -172,5 +177,5 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
     ["[SESSION]", ...sessionLines].join("\n"),
     ["[AUDIO]", "FILENAME=" + track.filename, "SHA256=" + track.sha256, "DURATION=" + timestamp(track.durationMs)].join("\n"),
     ...definitions.values(), ["[CUES]", ...cues].join("\n")].join("\n\n") + "\n";
-  return { source, issues };
+  return { source, issues, inlineDrills, acceptedBlocks };
 }

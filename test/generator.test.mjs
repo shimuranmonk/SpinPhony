@@ -123,12 +123,15 @@ test("the editor shares identical INLINE definitions while keeping cue times and
   const first = { ...manualBlocks[0], once: true };
   const second = { ...first, id: 8, timeMs: 3000, once: false, note: "Another cue" };
   const changed = { ...first, id: 9, timeMs: 6000, balls: first.balls.map(ball => ({ ...ball, HEIGHT: 35 })) };
-  const { source, issues } = compileManualScore(track, [first, second, changed, manualBlocks.at(-1)]);
+  const { source, issues, inlineDrills, acceptedBlocks } = compileManualScore(track, [first, second, changed, manualBlocks.at(-1)]);
   assert.deepEqual(issues, []);
   assert.equal((source.match(/^\[INLINE:/gm) ?? []).length, 2);
   assert.match(source, /^00:00\.000 INLINE=INL_LOOPERS_1;ONCE$/m);
   assert.match(source, /^00:03\.000 INLINE=INL_LOOPERS_1$/m);
   assert.match(source, /^00:06\.000 INLINE=INL_LOOPERS_9;ONCE$/m);
+  assert.match(source, /00:00\.000 INLINE=INL_LOOPERS_1;ONCE\n\n# CDRILL - Loopers — Another cue\n00:03\.000/u);
+  assert.deepEqual(inlineDrills.map(item => item.alias), ["INL_LOOPERS_1", "INL_LOOPERS_9"]);
+  assert.deepEqual(acceptedBlocks.map(block => block.timeMs), [0, 3000, 6000, 10000]);
 });
 
 test("manual export writes the header, numbered inline balls, and all four flavor fields", async () => {

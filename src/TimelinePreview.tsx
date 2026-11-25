@@ -1,19 +1,15 @@
 import { useEffect, useRef, useState } from "react";
-import { CueMap } from "./CueMap.js";
-import { cycleDuration } from "./generator.js";
-import type { Cue } from "./generator.js";
+import { blocksToCueMap, CueMap } from "./CueMap.js";
+import type { compileManualScore } from "./manualScore.js";
 import { MsyncTextPreview } from "./MsyncTextPreview.js";
 
-export function TimelinePreview({ file, source, cues, durationMs, feedBpm, onDownload }: {
-  file: File; source: string; cues: Cue[]; durationMs: number; feedBpm: number; onDownload: () => void;
+export function TimelinePreview({ file, draft, durationMs, onDownload }: {
+  file: File; draft: ReturnType<typeof compileManualScore>; durationMs: number; onDownload: () => void;
 }) {
   const audio = useRef<HTMLAudioElement>(null);
   const [position, setPosition] = useState<number>();
   const [playbackError, setPlaybackError] = useState("");
-  const mapEntries = cues.map((cue, id) => cue.command === "INLINE"
-    ? { id, timeMs: cue.timeMs, kind: "CDRILL" as const, label: "CDRILL - " + cue.drill.name,
-        durationMs: cue.once ? cycleDuration(cue.drill, feedBpm) : undefined }
-    : { id, timeMs: cue.timeMs, kind: cue.command, label: cue.command });
+  const mapEntries = blocksToCueMap(draft.acceptedBlocks, durationMs);
 
   useEffect(() => {
     const player = audio.current;
@@ -38,7 +34,7 @@ export function TimelinePreview({ file, source, cues, durationMs, feedBpm, onDow
     <section className="result" aria-labelledby="timeline">
       <div className="result-header">
         <h2 id="timeline">Timeline</h2>
-        <button type="button" onClick={onDownload}>Download .msync</button>
+        <button type="button" disabled={draft.issues.length > 0} onClick={onDownload}>Download .msync</button>
       </div>
       <div className="manual-transport preview-transport">
         <audio ref={audio} controls aria-label="Track audio"
@@ -50,7 +46,10 @@ export function TimelinePreview({ file, source, cues, durationMs, feedBpm, onDow
           onSeek={entry => seek(entry.timeMs)} />
       </div>
       {playbackError && <p role="alert">{playbackError}</p>}
-      <MsyncTextPreview source={source} timeMs={position === undefined ? undefined : Math.round(position * 1000)} />
+      <MsyncTextPreview source={draft.source} timeMs={position === undefined ? undefined : Math.round(position * 1000)} />
+      {draft.issues.length > 0 && <ul className="manual-issues">
+        {draft.issues.map((issue, index) => <li key={index}>{issue}</li>)}
+      </ul>}
     </section>
   );
 }

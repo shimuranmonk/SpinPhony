@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The shared Preview and source picker passed the build and all 26 tests. Chrome verified the taller window, unique INLINE choices, reuse across timestamps, cue spacing, named markers, playback highlights and an exact preview/download match.
+
 - The streamlined Preview passed the build and all 25 tests. Chrome at 390 px verified the taller read-only file, playback cue seeking, automatic block placement, cancellation preserving the existing draft, and MSYNC validation after replacement.
 
 - The FLAG follow-up passed the production build and all 25 tests. Chrome at 390 px verified removal of the separate detection map, adding yellow flag bookmarks at a detected marker and between markers, seeking from the cue map, and unchanged MSYNC text and validation.

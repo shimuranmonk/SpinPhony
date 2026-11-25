@@ -1,7 +1,20 @@
 import { timestamp } from "./generator.js";
-import type { BlockKind } from "./manualScore.js";
+import { blockLabel, blockOrder } from "./manualScore.js";
+import type { Block, BlockKind } from "./manualScore.js";
 
 export type CueMapEntry = { id: number; timeMs: number; kind: BlockKind; label: string; durationMs?: number };
+
+export function blocksToCueMap(blocks: Block[], durationMs: number): CueMapEntry[] {
+  const sorted = [...blocks].sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
+  const stopTime = sorted.find(item => item.kind === "STOP" && Number.isFinite(item.timeMs))?.timeMs ?? durationMs;
+  return sorted.filter(item => Number.isFinite(item.timeMs) && item.timeMs >= 0
+    && item.timeMs <= (item.kind === "FLAG" ? durationMs : Math.min(stopTime, durationMs)))
+    .map(item => ({
+      id: item.id, timeMs: item.timeMs, kind: item.kind, label: blockLabel(item),
+      durationMs: item.kind === "CDRILL" && item.once ? item.balls.reduce((total, ball) =>
+        total + (ball.BPM > 0 ? ball.REPS * 60000 / ball.BPM : 0), 0) : undefined,
+    }));
+}
 
 export function CueMap({ entries, durationMs, playhead, onSeek }: {
   entries: CueMapEntry[]; durationMs: number; playhead: number; onSeek: (entry: CueMapEntry) => void;

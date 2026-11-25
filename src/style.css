@@ -88,7 +88,10 @@ time { font-variant-numeric: tabular-nums; color: #00867e; }
   font: .85rem/var(--msync-line) ui-monospace, monospace;
 }
 .msync-highlight-layer { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
-#preview-panel .live-msync { height: clamp(22rem, 65vh, 38rem); }
+#preview-panel .live-msync { height: clamp(33rem, 97.5vh, 57rem); }
+.drill-source-options { display: flex; flex-wrap: wrap; gap: .4rem .85rem; margin-block: .45rem; }
+.drill-source-options label { display: inline-flex; align-items: center; gap: .3rem; }
+.drill-source-options input[type="radio"] { width: auto; margin: 0; accent-color: #00867e; }
 .msync-highlight { position: absolute; inset-inline: 0; height: var(--msync-line); border-left: .22rem solid; }
 .msync-highlight-cue, .msync-key-cue { background: #d9f4df; border-color: #00867e; }
 .msync-highlight-definition, .msync-key-definition { background: #fff0c5; border-color: #b87b00; }

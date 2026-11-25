@@ -1,5 +1,7 @@
 # SpinPhony continuation
 
+- **Shared editor Preview and INLINE picker** · Preview reads the same compiled MSYNC Editor draft, including edited cues and parameters. The CDRILL source radios switch one picker between Nova built-ins and unique INLINE definitions from the current draft. Reused drills retain each block's cue time and ONCE setting.
+
 - **Shared INLINE definitions** · The MSYNC Editor writes one definition for matching drill names, RANDOM settings, and ordered ball parameters. Cue times, notes and ONCE remain per block. Editing a placed block can produce a separate definition.
 
 - **Music Map removed for now** · The separate detection map and beat toggle are hidden from MSYNC Editor. The Music markers list still provides detection labels. Yellow FLAG blocks are editor bookmarks on the marker list and cue map. They are excluded from generated MSYNC text and timing.

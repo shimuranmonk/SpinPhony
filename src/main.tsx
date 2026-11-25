@@ -1,15 +1,15 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { Drill } from "./catalog.js";
 import { novaPatterns, prepareAutoDrill, readCustomDrills, saveCustomDrill, skillLimits, validateAutoBalls } from "./autoDrills.js";
 import type { Skill } from "./autoDrills.js";
-import { exportTimeline, feedRate, tagline, timestamp } from "./generator.js";
-import type { Cue, Profile } from "./generator.js";
+import { exportTimeline, feedRate, tagline, timestamp, validateTrack } from "./generator.js";
+import type { Profile } from "./generator.js";
 import { readTimeline, suggestTimeline } from "./score.js";
 import { autoCuesToBlocks } from "./autoTransfer.js";
 import { TimelinePreview } from "./TimelinePreview.js";
 import { ManualEditor } from "./ManualEditor.js";
-import { defaultSession } from "./manualScore.js";
+import { compileManualScore, defaultSession } from "./manualScore.js";
 import type { Ball, Block } from "./manualScore.js";
 import { analyzeFile } from "./rhythm.js";
 import type { Track } from "./rhythm.js";
@@ -31,14 +31,13 @@ function App() {
   const [profile, setProfile] = useState<Profile>({
     pace: "steady", handedness: "right", skill: "Novice",
   });
-  const [generated, setGenerated] = useState<{ source: string; cues: Cue[]; feedBpm: number }>();
+  const draft = useMemo(() => track ? compileManualScore(track, blocks, session) : undefined, [track, blocks, session]);
   const request = useRef(0);
 
   async function load(file: File | undefined) {
     const id = ++request.current;
     setFile(file);
     setTrack(undefined);
-    setGenerated(undefined);
     setBlocks([]);
     setError("");
 
@@ -47,6 +46,7 @@ function App() {
     try {
       const analyzed = await analyzeFile(file);
       if (id !== request.current) return;
+      validateTrack(analyzed);
       setTrack(analyzed);
 
     } catch (failure) {
@@ -84,12 +84,11 @@ function App() {
       const score = suggestTimeline(track, prepared, feedBpm);
       const { cues } = readTimeline(score, track.durationMs, prepared, feedBpm);
       if (cues.length <= 1) throw new Error("No complete practice cycle fits. Try another drill or use MSYNC Editor.");
-      const source = exportTimeline(track, cues, profile, feedBpm);
+      exportTimeline(track, cues, profile, feedBpm);
       const nextBlocks = autoCuesToBlocks(cues, profile, feedBpm);
       const hasSessionEdits = session.COUNTDOWN !== defaultSession.COUNTDOWN
         || session.CYCLE_PAUSE !== defaultSession.CYCLE_PAUSE || session.ROBOT_LEAD !== defaultSession.ROBOT_LEAD;
       if ((blocks.length || hasSessionEdits) && !window.confirm("Replace the current MSYNC Editor draft with this Auto timeline?")) return;
-      setGenerated({ source, cues, feedBpm });
       setBlocks(nextBlocks);
       // Auto omits SESSION. Preserve the frozen format’s implicit values on transfer.
       setSession({ ...defaultSession, ROBOT_LEAD: "1.3" });
@@ -187,14 +186,14 @@ function App() {
         {error && tab === "music" && <p role="alert">{error}</p>}
       </div>
       <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
-        {tab === "preview" && (generated && file && track ? (
-          <TimelinePreview file={file} source={generated.source} cues={generated.cues}
-            durationMs={track.durationMs} feedBpm={generated.feedBpm} onDownload={() => download(generated.source)} />
-        ) : <section><p>Generate a timeline from the Auto panel in Music to preview it here.</p></section>)}
+        {tab === "preview" && (draft && file && track ? (
+          <TimelinePreview file={file} draft={draft} durationMs={track.durationMs}
+            onDownload={() => download(draft.source)} />
+        ) : <section><p>Choose an audio file in Music to start a timeline.</p></section>)}
       </div>
       {tab === "manual" && <div id="manual-panel" role="tabpanel" aria-labelledby="manual-tab">
-        {file && track
-          ? <ManualEditor file={file} track={track}
+        {file && track && draft
+          ? <ManualEditor file={file} track={track} draft={draft}
               blocks={blocks} onChange={setBlocks} onDownload={download} session={session} onSessionChange={setSession} onSaveCustom={saveDrill} />
           : <section><p>{busy ? "Analyzing audio…" : "Choose an audio file in the Music tab to start editing."}</p></section>}
       </div>}
