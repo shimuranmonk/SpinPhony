@@ -1,5 +1,7 @@
 # SpinPhony continuation
 
+- **Shared INLINE definitions** · The MSYNC Editor writes one definition for matching drill names, RANDOM settings, and ordered ball parameters. Cue times, notes and ONCE remain per block. Editing a placed block can produce a separate definition.
+
 - **Music Map removed for now** · The separate detection map and beat toggle are hidden from MSYNC Editor. The Music markers list still provides detection labels. Yellow FLAG blocks are editor bookmarks on the marker list and cue map. They are excluded from generated MSYNC text and timing.
 
 - **Music setup and CLEAR** · Music houses Auto’s Training Profile and Generate Timeline directly below the audio picker. Ball editing and Save as Custom live in MSYNC Editor. CLEAR removes every placed block while retaining the track and SESSION settings.

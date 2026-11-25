@@ -73,6 +73,7 @@ export const defaultSession: SessionSettings = { COUNTDOWN: "4", CYCLE_PAUSE: "1
 export function compileManualScore(track: Track, blocks: Block[], session = defaultSession) {
   validateTrack(track);
   const definitions = new Map<string, string>();
+  const inlineNames = new Map<string, string>();
   const cues: string[] = [];
   const issues: string[] = [];
   const sessionLines = (Object.keys(sessionFields) as SessionField[]).map(key => {
@@ -117,8 +118,6 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
       if (kind === "CDRILL") {
         const title = drillName(block);
         if (!title || !block.balls.length || block.balls.length > maxBalls) throw new Error("Enter a name and 1–10 ball entries.");
-        const suffix = title.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 25);
-        const name = "INL_" + (/^[A-Z]/.test(suffix) ? suffix : "DRILL_" + suffix) + "_" + id;
         const balls = block.balls.map((ball, index) => {
           for (const key of fields) {
             if (key !== "TYPE") checkField(key, ball[key]);
@@ -127,8 +126,14 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
           checkSpin(ball.SPEED, ball.SPIN);
           return "BALL=" + (index + 1) + fields.map(key => ";" + key + "=" + ball[key]).join("");
         });
-        define(definitions, name, ["# Drill: " + title, "[INLINE:" + name + "]", "NAME=" + title,
-          "RANDOM=" + block.random, ...balls].join("\n"));
+        const body = ["NAME=" + title, "RANDOM=" + block.random, ...balls].join("\n");
+        let name = inlineNames.get(body);
+        if (!name) {
+          const suffix = title.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 25);
+          name = "INL_" + (/^[A-Z]/.test(suffix) ? suffix : "DRILL_" + suffix) + "_" + id;
+          define(definitions, name, ["# Drill: " + title, "[INLINE:" + name + "]", body].join("\n"));
+          inlineNames.set(body, name);
+        }
         command = "INLINE=" + name + (block.once ? ";ONCE" : "");
         active = block;
         activated = true;
