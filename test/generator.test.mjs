@@ -7,11 +7,29 @@ import { detectMusicMarkers } from "../.test-build/music.js";
 import { readTimeline, suggestTimeline } from "../.test-build/score.js";
 import { novaPatterns, prepareAutoDrill, validateAutoBalls } from "../.test-build/autoDrills.js";
 import { indexMsync, msyncHighlight } from "../.test-build/msyncHighlight.js";
+import { autoCuesToBlocks } from "../.test-build/autoTransfer.js";
 import { compileManualScore, initialBall, loadBuiltInBalls } from "../.test-build/manualScore.js";
 
 const track = { filename: "pulse.wav", durationMs: 24000, sha256: "a".repeat(64), rhythm: { bpm: 120 }, markers: [{ timeMs: 0, kind: "section" }, { timeMs: 250, kind: "hit" }, { timeMs: 1320, kind: "hit" }] };
 const rhythm = { bpm: 120, firstBeatMs: 250 };
 const profile = { pace: "steady", handedness: "right" };
+
+test("copying Auto cues preserves cue times and actual ball values in independent blocks", () => {
+  const left = { ...profile, handedness: "left" };
+  const native = novaPatterns.find(drill => drill.name === "Forehand Drive");
+  const original = { ...native, parameters: [{ ...native.parameters[0], REPS: 2 }] };
+  const { cues, feedBpm } = compile([original], left);
+  const blocks = autoCuesToBlocks(cues, left, feedBpm);
+  assert.deepEqual(blocks.map(block => block.timeMs), cues.map(cue => cue.timeMs));
+  assert.equal(blocks.at(-1).kind, "STOP");
+  assert.ok(blocks.slice(0, -1).every(block => block.kind === "CDRILL" && block.once));
+  assert.equal(blocks[0].balls[0].DROP, -5);
+  assert.equal(blocks[0].balls[0].REPS, 2);
+  blocks[0].balls[0].DROP = -4;
+  assert.equal(blocks[1].balls[0].DROP, -5);
+  assert.equal(original.parameters[0].DROP, 5);
+  assert.deepEqual(compileManualScore(track, blocks).issues, []);
+});
 
 test("Auto uses Nova Level 1 as its starting preset and enforces player and robot limits", () => {
   const base = novaPatterns.find(drill => drill.name === "Forehand Drive");

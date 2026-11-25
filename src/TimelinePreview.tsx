@@ -1,6 +1,9 @@
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
+import { CueMap } from "./CueMap.js";
+import type { Cue } from "./generator.js";
 import type { Drill } from "./catalog.js";
-import { timestamp } from "./generator.js";
+import { cycleDuration, timestamp } from "./generator.js";
 import type { MusicEvent } from "./musicEvents.js";
 import { MsyncTextPreview } from "./MsyncTextPreview.js";
 
@@ -8,6 +11,10 @@ type Props = {
   file: File;
   text: string;
   source: string;
+  cues: Cue[];
+  durationMs: number;
+  children?: ReactNode;
+  onTransfer: () => void;
   lines: { timeMs: number; line: number }[];
   events: MusicEvent[];
   drills: Drill[];
@@ -30,7 +37,7 @@ function activeIndexAt(markers: { timeMs: number }[], seconds: number) {
 }
 
 export function TimelinePreview(props: Props) {
-  const { file, text, source, lines, events, drills, feedBpm, validationError, canDownload, onDownload, onEdit } = props;
+  const { file, text, source, cues, durationMs, children, onTransfer, lines, events, drills, feedBpm, validationError, canDownload, onDownload, onEdit } = props;
   const rates = drills.flatMap(drill => drill.parameters?.map(ball => ball.BPM) ?? [feedBpm]).filter(Number.isFinite);
   const minRate = Math.min(...rates);
   const maxRate = Math.max(...rates);
@@ -38,11 +45,14 @@ export function TimelinePreview(props: Props) {
   const windowRef = useRef<HTMLTextAreaElement>(null);
   const eventListRef = useRef<HTMLOListElement>(null);
   const [scrollTop, setScrollTop] = useState(0);
-  const playbackRequest = useRef(0);
-  const [playback, setPlayback] = useState<"stopped" | "playing" | "paused" | "ended">("stopped");
-  const [active, setActive] = useState(-1);
-  const [activeEvent, setActiveEvent] = useState(-1);
+  const [position, setPosition] = useState<number>();
   const [playbackError, setPlaybackError] = useState("");
+  const active = position === undefined ? -1 : lines[activeIndexAt(lines, position)]?.line ?? -1;
+  const activeEvent = position === undefined ? -1 : activeIndexAt(events, position);
+  const mapEntries = source ? cues.map((cue, id) => cue.command === "INLINE"
+    ? { id, timeMs: cue.timeMs, kind: "CDRILL" as const, label: "CDRILL - " + cue.drill.name,
+        durationMs: cue.once ? cycleDuration(cue.drill, feedBpm) : undefined }
+    : { id, timeMs: cue.timeMs, kind: cue.command, label: cue.command }) : [];
 
   useEffect(() => {
     const player = audio.current;
@@ -50,27 +60,12 @@ export function TimelinePreview(props: Props) {
     const url = URL.createObjectURL(file);
     player.src = url;
     return () => {
-      playbackRequest.current++;
       player.pause();
       player.removeAttribute("src");
       player.load();
       URL.revokeObjectURL(url);
     };
   }, [file]);
-
-  useEffect(() => {
-    if (playback !== "playing") return;
-    let frame: number;
-    function update() {
-      const player = audio.current;
-      if (!player) return;
-      setActive(lines[activeIndexAt(lines, player.currentTime)]?.line ?? -1);
-      setActiveEvent(activeIndexAt(events, player.currentTime));
-      frame = requestAnimationFrame(update);
-    }
-    update();
-    return () => cancelAnimationFrame(frame);
-  }, [lines, events, playback]);
 
   useEffect(() => {
     const editor = windowRef.current;
@@ -95,57 +90,30 @@ export function TimelinePreview(props: Props) {
     else if (event.bottom > bounds.bottom) list.scrollTop += event.bottom - bounds.bottom;
   }, [activeEvent]);
 
-  function stop() {
-    playbackRequest.current++;
+  function seek(timeMs: number) {
     const player = audio.current;
-    if (player) {
-      player.pause();
-      if (player.readyState > 0) player.currentTime = 0;
-    }
-    setPlayback("stopped");
-    setActive(-1);
-    setActiveEvent(-1);
-    setPlaybackError("");
-  }
-
-  async function play(fromStart: boolean) {
-    const player = audio.current;
-    if (!player) return;
-    const id = ++playbackRequest.current;
-    setPlaybackError("");
-    if (fromStart) player.currentTime = 0;
-    setPlayback("playing");
-    try {
-      await player.play();
-    } catch {
-      if (id !== playbackRequest.current) return;
-      stop();
-      setPlaybackError("The browser could not play this audio file.");
-    }
-  }
-
-  function pause() {
-    playbackRequest.current++;
-    const player = audio.current;
-    player?.pause();
-    if (player) {
-      setActive(lines[activeIndexAt(lines, player.currentTime)]?.line ?? -1);
-      setActiveEvent(activeIndexAt(events, player.currentTime));
-    }
-    setPlayback("paused");
+    if (player) player.currentTime = timeMs / 1000;
+    setPosition(timeMs / 1000);
   }
 
   return (
     <section className="result" aria-labelledby="timeline">
-      <audio ref={audio} onEnded={() => {
-        setPlayback("ended");
-        setActive(lines.at(-1)?.line ?? -1);
-        setActiveEvent(events.length - 1);
-      }} />
       <div className="result-header">
         <div><h2 id="timeline">Timeline</h2><p>{lines.length} markers{rates.length > 0
           && (" · " + (minRate === maxRate ? minRate : minRate + "–" + maxRate) + " balls/min")}</p></div>
-        <button disabled={!canDownload} onClick={onDownload}>Download .msync</button>
+        <div className="manual-ball-actions">
+          <button disabled={!canDownload} onClick={onTransfer}>Edit in MSYNC Editor</button>
+          <button disabled={!canDownload} onClick={onDownload}>Download .msync</button>
+        </div>
+      </div>
+      <div className="manual-transport preview-transport">
+        <audio ref={audio} controls aria-label="Track audio"
+          onPlay={event => setPosition(event.currentTarget.currentTime)}
+          onSeeked={event => setPosition(event.currentTarget.currentTime)}
+          onTimeUpdate={event => setPosition(event.currentTarget.currentTime)}
+          onError={() => setPlaybackError("The browser could not play this audio file.")} />
+        <CueMap entries={mapEntries} durationMs={durationMs} playhead={(position ?? 0) * 1000}
+          onSeek={entry => seek(entry.timeMs)} />
       </div>
       <p id="timeline-help" className="hint">
         Edit one marker per line. Format: <code>time | HIT or SECTION | drill name or - | comment</code>.
@@ -156,12 +124,6 @@ export function TimelinePreview(props: Props) {
       {validationError && <p role="alert">{validationError}</p>}
       {playbackError && <p role="alert">{playbackError}</p>}
       <div className="timeline-window">
-        <div className="transport" role="group" aria-label="Playback controls">
-          <button disabled={!lines.length || playback === "playing" || playback === "paused"} onClick={() => void play(true)}>Play</button>
-          <button disabled={playback !== "playing"} onClick={pause}>Pause</button>
-          <button disabled={playback !== "paused"} onClick={() => void play(false)}>Resume</button>
-          <button disabled={playback === "stopped"} onClick={stop}>Stop</button>
-        </div>
         <div className="preview-panels">
           <div>
             <h3>Edit timeline</h3>
@@ -172,7 +134,7 @@ export function TimelinePreview(props: Props) {
                 aria-invalid={Boolean(validationError)} wrap="off" spellCheck={false} value={text}
                 onScroll={event => setScrollTop(event.currentTarget.scrollTop)}
                 onChange={event => {
-                  if (playback !== "stopped") stop();
+                  audio.current?.pause();
                   onEdit(event.target.value);
                 }} />
             </div>
@@ -191,7 +153,8 @@ export function TimelinePreview(props: Props) {
           </div>
         </div>
       </div>
-      <MsyncTextPreview source={source} timeMs={events[activeEvent]?.timeMs} />
+      <MsyncTextPreview source={source} timeMs={position === undefined ? undefined : Math.round(position * 1000)} />
+      {children}
     </section>
   );
 }

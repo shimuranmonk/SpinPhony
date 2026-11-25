@@ -1,5 +1,7 @@
 # SpinPhony continuation
 
+- **Auto Preview to MSYNC Editor** · Preview uses a sticky audio player and cue map based on the generated file. Edit in MSYNC Editor copies each activation into an independent placed block and confirms replacement of an existing draft.
+
 - **Live MSYNC highlights** · Auto Preview now shows its generated file and follows the current exported cue during audio playback. The manual editor highlights the selected block's exact cue and definition. Highlights are display-only.
 
 - **Skill-aware Auto and Custom drills** · Auto starts from Nova Level 1 or a locally saved Custom pattern, applies the player’s speed/spin ceiling, and allows per-ball Preview edits before export. Music shows Nova Drills and Custom. Physical landing checks and automated FLAVOR cues remain future work.

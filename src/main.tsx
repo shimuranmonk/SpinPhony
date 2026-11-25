@@ -8,6 +8,7 @@ import { exportTimeline, feedRate, tagline, timestamp } from "./generator.js";
 import type { Profile } from "./generator.js";
 import { readTimeline, suggestTimeline } from "./score.js";
 import { describeMusicEvents } from "./musicEvents.js";
+import { autoCuesToBlocks } from "./autoTransfer.js";
 import { TimelinePreview } from "./TimelinePreview.js";
 import { ManualEditor } from "./ManualEditor.js";
 import { defaultSession } from "./manualScore.js";
@@ -97,6 +98,18 @@ function App() {
     } catch (failure) {
       timelineError = failure instanceof Error ? failure.message : String(failure);
     }
+  }
+
+  function transferToEditor() {
+    if (!source || !timeline) return;
+    const hasSessionEdits = session.COUNTDOWN !== defaultSession.COUNTDOWN
+      || session.CYCLE_PAUSE !== defaultSession.CYCLE_PAUSE || session.ROBOT_LEAD !== defaultSession.ROBOT_LEAD;
+    if ((blocks.length || hasSessionEdits) && !window.confirm("Replace the current MSYNC Editor draft with this Auto timeline?")) return;
+    setBlocks(autoCuesToBlocks(timeline.cues, profile, feedBpm));
+    // Auto omits SESSION. Preserve the frozen format’s implicit values on transfer.
+    setSession({ ...defaultSession, ROBOT_LEAD: "1.3" });
+    setTab("manual");
+    document.getElementById("manual-tab")?.focus();
   }
 
   function saveDrill(drill: Drill, name: string) {
@@ -204,12 +217,14 @@ function App() {
       </form>
       <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
         {tab === "preview" && (score !== undefined && file && track ? (
-          <><TimelinePreview file={file} text={score} source={source} lines={timeline?.lines ?? []}
+          <TimelinePreview file={file} text={score} source={source} cues={timeline?.cues ?? []}
+            durationMs={track.durationMs} lines={timeline?.lines ?? []}
             events={describeMusicEvents(track, timeline)} drills={prepared} feedBpm={feedBpm}
             validationError={timelineError} canDownload={Boolean(source)} onDownload={() => download(source)}
-            onEdit={setScore} />
+            onEdit={setScore} onTransfer={transferToEditor}>
           <AutoBallEditor drills={prepared} skill={skill} left={profile.handedness === "left"}
-            onEdit={(id, balls) => setBallEdits(previous => ({ ...previous, [id]: balls }))} onSave={saveDrill} /></>
+            onEdit={(id, balls) => setBallEdits(previous => ({ ...previous, [id]: balls }))} onSave={saveDrill} />
+          </TimelinePreview>
         ) : <section><p>Generate a timeline in Auto to preview it here.</p></section>)}
       </div>
       {tab === "manual" && <div id="manual-panel" role="tabpanel" aria-labelledby="manual-tab">

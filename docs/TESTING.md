@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The shared cue map and Auto transfer passed the production build and all 22 tests. Chrome verified sticky positioning at 390 px, exact cue seeking, preservation of handedness and one-cycle settings, independent edits, replacement confirmation and manual validation after transfer.
+
 - The two live text windows passed the build and 21 tests. Chrome verified Auto playback and Stop, manual drill rename, same-time FLAVOR versus INLINE selection, STOP cue-only highlighting, and unchanged preview/download equality.
 
 - The skill-aware Auto follow-up passed the production build and 20 tests. Chrome at 390 px verified the library summaries, Amateur generation, Height/Drop/Reps editing, valid MSYNC export, local persistence across reload, and reuse of an adjusted drill in a fresh generation. Physical placement was not tested.

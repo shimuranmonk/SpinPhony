@@ -3,6 +3,7 @@ import { timestamp } from "./generator.js";
 import { nativeDrills } from "./nativeDrills.js";
 import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, drillName, flavorFields, initialBall, loadBuiltInBalls, maxBalls, sessionFields } from "./manualScore.js";
 import { validateMsyncSource } from "./msync-v1/validator.js";
+import { CueMap } from "./CueMap.js";
 import { MsyncTextPreview } from "./MsyncTextPreview.js";
 import type { BallField, Block, BlockKind, SessionField, SessionSettings } from "./manualScore.js";
 import type { Track } from "./rhythm.js";
@@ -116,32 +117,20 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
   const stopTime = sorted.find(item => item.kind === "STOP" && Number.isFinite(item.timeMs))?.timeMs ?? track.durationMs;
   const scheduled = sorted.filter(item => Number.isFinite(item.timeMs) && item.timeMs >= 0
     && item.timeMs <= Math.min(stopTime, track.durationMs));
-  const percent = (timeMs: number) => timeMs * 100 / track.durationMs;
+  const mapEntries = scheduled.map(item => ({
+    id: item.id, timeMs: item.timeMs, kind: item.kind, label: blockLabel(item),
+    durationMs: item.kind === "CDRILL" && item.once ? item.balls.reduce((total, ball) =>
+      total + (ball.BPM > 0 ? ball.REPS * 60000 / ball.BPM : 0), 0) : undefined,
+  }));
 
   return <section className="manual-editor">
     <h2>MSYNC Editor</h2>
     <div className="manual-transport">
       <audio ref={audio} src={url} controls aria-label="Track audio"
         onTimeUpdate={event => setPlayhead(Math.round(event.currentTarget.currentTime * 1000))} />
-      <div className="cue-strip" role="group" aria-label="Scheduled blocks on the audio timeline">
-        {scheduled.map((item, index) => {
-          const next = scheduled.slice(index + 1).find(cue => cue.kind !== "FLAVOR");
-          const isMarker = item.kind === "STOP" || item.kind === "FLAVOR";
-          const cycle = item.kind === "CDRILL" && item.once
-            ? item.balls.reduce((total, ball) => total + (ball.BPM > 0 ? ball.REPS * 60000 / ball.BPM : 0), 0)
-            : Infinity;
-          const end = Math.max(item.timeMs, Math.min(next?.timeMs ?? stopTime, item.timeMs + cycle));
-          const label = blockLabel(item) + " · " + timestamp(item.timeMs)
-            + (isMarker ? "" : " to " + timestamp(Math.round(end)));
-          return <button type="button" key={item.id} data-block={item.kind}
-            className={isMarker ? "cue-pin" : "cue-span"} title={label} aria-label={label}
-            style={{ left: percent(item.timeMs) + "%", width: isMarker ? undefined : percent(end - item.timeMs) + "%" }}
-            onClick={() => { seek(item.timeMs); setSelected(item.id); setCueJump(value => value + 1); }}>
-            {!isMarker && blockLabel(item)}
-          </button>;
-        })}
-        <span className="cue-playhead" aria-hidden="true" style={{ left: percent(playhead) + "%" }} />
-      </div>
+      <CueMap entries={mapEntries} durationMs={track.durationMs} playhead={playhead} onSeek={item => {
+        seek(item.timeMs); setSelected(item.id); setCueJump(value => value + 1);
+      }} />
       <div className="manual-actions">
         <button type="button" onClick={() => add(kind, playhead)}>Add {kind} at {timestamp(playhead)}</button>
         <div className="block-tray" aria-label="Available blocks">
