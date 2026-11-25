@@ -8,7 +8,9 @@ React, TypeScript and Vite provide a standalone static app. Audio stays local. W
 
 The analyzer detects short loudness/brightness increases and compares adjacent two-second windows to find sustained changes. It profiles section loudness, brightness and hit density. The Music markers list uses these detections as timing guidance. Phrase and returning-section labels are estimates. The separate Music Map and exposed beat grid were removed for now.
 
-Auto chooses from selected patterns. It favors lower movement demand, reuses a choice for similar eligible middle passages and can leave quiet or too-short spans empty. Long active sections of at least 45 seconds are divided into finite practice blocks of up to 20 seconds with planned recovery of at least eight seconds between blocks. Repeat counts must fit by actual per-ball BPM and REPS. These settings and acoustic thresholds are provisional.
+Auto orders selected patterns by placement span, predictable sequence and pattern size. It reserves at least one estimated cycle and a recovery for each feasible selection before scheduling repeats. Major boundaries and accent strengths guide recovery starts and drill entries. Two intervals last eight seconds when feasible. The others last three to four seconds, bounded by the next INLINE or final STOP.
+
+Work targets about 18 seconds with a provisional 22-second planning budget. It can stretch to fit a long cycle or distribute the remaining track time. Repeating INLINE cues let the editor export explicit IDLE. Controller-side interruption timing and retention of the next-ball index are open. The acoustic detector does not identify a chorus or drum fill by name.
 
 The [coaching design](COACHING_SPEC_V1.md) is the target. Today, one drill can dominate the generated score even when the pool contains several. The first implementation uses finite INLINE activations. Full adaptive workload, richer variants and exact next-ball recovery need further development and validation.
 

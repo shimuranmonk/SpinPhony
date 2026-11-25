@@ -8,13 +8,13 @@ The editor supports CDRILL, FLAVOR, IDLE, STOP and yellow FLAG bookmarks. It can
 
 ## What Auto can do today
 
-Auto detects accents and acoustically distinct sections, schedules finite cycles, and uses provisional work and recovery budgets when sections are long. Nova Level 1 and saved Custom settings are starting points for ball parameters. Player skill bounds speed and spin, while the robot envelope further limits legal combinations. Auto still tends to prefer one low-demand drill per section and can underuse a selected pool. The thresholds need annotated-music and player/robot validation.
+Auto gives each feasible selected drill a work block before repeating, starting with lower movement demand. Detected sections and strong accents guide transitions. Repeating INLINE cues are followed by explicit IDLE cues for two eight-second recoveries when feasible and three to four seconds for other recoveries. Preview reports omitted selections and fewer long recoveries. Player skill and robot parameter limits still apply.
 
 The [coaching contract](COACHING_SPEC_V1.md) describes the target behavior. The current release implements an initial subset. Full adaptive phase/workload policy, timed Auto FLAVOR changes, and exact next-ball recovery remain open. See the [architecture](ARCHITECTURE.md) and [testing](TESTING.md) for implemented behavior and observed checks.
 
 ## Resume
 
 1. Read [continuation](CONTINUATION.md), compare the checkout with GitHub, and recover the verified revision from the release PR.
-2. Use annotated diverse tracks to assess section boundaries and planned cycle distribution. Investigate why multiple selected drills may collapse to one, including long single-section tracks.
+2. Compare transitions against annotated tracks. Verify when the controller stops feeding at IDLE and whether it can preserve cycle position across an interruption.
 3. Verify MSYNC consumer timing and actual placements when robot testing is authorized. Keep validator results distinct from runtime and hardware observations.
 4. If hosted deployment is requested, configure GitHub Pages for Actions and dispatch **Publish SpinPhony** from `main`. Verify the served revision and a valid download with a local audio file.

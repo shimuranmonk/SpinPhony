@@ -13,5 +13,6 @@ The MVP baseline below comes from the Spinphony v1 planning handoff for `shimura
 | SP-007 | Implemented | Generate into MSYNC Editor blocks and open a shared read-only Preview. Keep FLAG bookmarks editor-only. The separate Music Map is paused. | [Current architecture](ARCHITECTURE.md). |
 | SP-008 | Implemented with provisional calibration | Auto uses Nova Level 1 or a saved Custom pattern and the Novice, Amateur, Expert or Pro ceiling. Music BPM stays independent of ball feed. The visible library exposes Nova Drills and Custom. | [Coaching Specification v1](COACHING_SPEC_V1.md) and [testing](TESTING.md). |
 | SP-009 | Target design | Apply the coaching policies only to Auto. Keep complete manual customization available within MSYNC constraints. | [Coaching Specification v1](COACHING_SPEC_V1.md). |
+| SP-010 | Implemented with runtime checks pending | Give each feasible selected drill a practice block before repeating the coaching progression. Plan two eight-second rests per track when feasible and three to four seconds for other rests. Favor section and accent alignment and report reduced plans. | [Coaching Specification v1](COACHING_SPEC_V1.md). |
 
 Any change to the MVP baseline needs maintainer approval. Preserve the prior entry and link its replacement when superseding a decision.

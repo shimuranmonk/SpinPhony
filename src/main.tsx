@@ -5,7 +5,7 @@ import { novaPatterns, prepareAutoDrill, readCustomDrills, saveCustomDrill, skil
 import type { Skill } from "./autoDrills.js";
 import { exportTimeline, feedRate, tagline, timestamp, validateTrack } from "./generator.js";
 import type { Profile } from "./generator.js";
-import { readTimeline, suggestTimeline } from "./score.js";
+import { scheduleAuto } from "./autoSchedule.js";
 import { autoCuesToBlocks } from "./autoTransfer.js";
 import { TimelinePreview } from "./TimelinePreview.js";
 import { ManualEditor } from "./ManualEditor.js";
@@ -24,6 +24,7 @@ function App() {
   const [track, setTrack] = useState<Track>();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [autoNotice, setAutoNotice] = useState("");
   const [selected, setSelected] = useState<Drill[]>(() => novaPatterns.filter(drill => drill.name === "Forehand Drive"));
   const [custom, setCustom] = useState(readCustomDrills);
   const [drillQuery, setDrillQuery] = useState("");
@@ -40,6 +41,7 @@ function App() {
     setTrack(undefined);
     setBlocks([]);
     setError("");
+    setAutoNotice("");
 
     setBusy(Boolean(file));
     if (!file) return;
@@ -82,9 +84,7 @@ function App() {
     setError("");
     try {
       for (const drill of prepared) if (drill.parameters) validateAutoBalls(drill.parameters, skill);
-      const score = suggestTimeline(track, prepared, feedBpm);
-      const { cues } = readTimeline(score, track.durationMs, prepared, feedBpm);
-      if (cues.length <= 1) throw new Error("No complete practice cycle fits. Try another drill or use MSYNC Editor.");
+      const { cues, unused, longCount } = scheduleAuto(track, prepared, feedBpm);
       exportTimeline(track, cues, profile, feedBpm);
       const nextBlocks = autoCuesToBlocks(cues, profile, feedBpm);
       // Build the replacement first. A failed generation or canceled prompt leaves the draft intact.
@@ -92,6 +92,10 @@ function App() {
         || session.CYCLE_PAUSE !== defaultSession.CYCLE_PAUSE || session.ROBOT_LEAD !== defaultSession.ROBOT_LEAD;
       if ((blocks.length || hasSessionEdits) && !window.confirm("Replace the current MSYNC Editor draft with this Auto timeline?")) return;
       setBlocks(nextBlocks);
+      setAutoNotice([
+        unused.length ? "Couldn’t fit a complete cycle and recovery for: " + unused.map(drill => drill.name).join(", ") + "." : "",
+        longCount < 2 ? "This track and drill selection only fit " + longCount + " of the two 8-second recoveries." : "",
+      ].filter(Boolean).join(" "));
       // Auto omits SESSION. Preserve the frozen format’s implicit values on transfer.
       setSession({ ...defaultSession, ROBOT_LEAD: "1.3" });
       setTab("preview");
@@ -188,6 +192,7 @@ function App() {
         {error && tab === "music" && <p role="alert">{error}</p>}
       </div>
       <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
+        {tab === "preview" && blocks.length > 0 && autoNotice && <p role="status">{autoNotice}</p>}
         {tab === "preview" && (draft && file && track ? (
           <TimelinePreview file={file} draft={draft} durationMs={track.durationMs}
             onDownload={() => download(draft.source)} />
