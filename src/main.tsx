@@ -204,7 +204,7 @@ function App() {
       </form>
       <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
         {tab === "preview" && (score !== undefined && file && track ? (
-          <><TimelinePreview file={file} text={score} lines={timeline?.lines ?? []}
+          <><TimelinePreview file={file} text={score} source={source} lines={timeline?.lines ?? []}
             events={describeMusicEvents(track, timeline)} drills={prepared} feedBpm={feedBpm}
             validationError={timelineError} canDownload={Boolean(source)} onDownload={() => download(source)}
             onEdit={setScore} />

@@ -3,6 +3,7 @@ import { timestamp } from "./generator.js";
 import { nativeDrills } from "./nativeDrills.js";
 import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, drillName, flavorFields, initialBall, loadBuiltInBalls, maxBalls, sessionFields } from "./manualScore.js";
 import { validateMsyncSource } from "./msync-v1/validator.js";
+import { MsyncTextPreview } from "./MsyncTextPreview.js";
 import type { BallField, Block, BlockKind, SessionField, SessionSettings } from "./manualScore.js";
 import type { Track } from "./rhythm.js";
 
@@ -272,8 +273,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
         })}
       </div>
     </fieldset>
-    <h3>Live MSYNC Preview</h3>
-    <textarea className="live-msync" aria-label="Live MSYNC Preview" readOnly value={source} spellCheck={false} />
+    <MsyncTextPreview source={source} timeMs={block?.timeMs} command={block?.kind === "CDRILL" ? "INLINE" : block?.kind} />
     {issues.length > 0 && <ul className="manual-issues" role="status">{issues.map((issue, i) => <li key={i}>{issue}</li>)}</ul>}
     <div className="manual-ball-actions">
       <button type="button" onClick={validate}>VALIDATE</button>

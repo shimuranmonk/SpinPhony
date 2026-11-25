@@ -6,6 +6,7 @@ import { estimateRhythm } from "../.test-build/rhythm.js";
 import { detectMusicMarkers } from "../.test-build/music.js";
 import { readTimeline, suggestTimeline } from "../.test-build/score.js";
 import { novaPatterns, prepareAutoDrill, validateAutoBalls } from "../.test-build/autoDrills.js";
+import { indexMsync, msyncHighlight } from "../.test-build/msyncHighlight.js";
 import { compileManualScore, initialBall, loadBuiltInBalls } from "../.test-build/manualScore.js";
 
 const track = { filename: "pulse.wav", durationMs: 24000, sha256: "a".repeat(64), rhythm: { bpm: 120 }, markers: [{ timeMs: 0, kind: "section" }, { timeMs: 250, kind: "hit" }, { timeMs: 1320, kind: "hit" }] };
@@ -32,6 +33,22 @@ const manualBlocks = [
   { id: 3, timeMs: 5000, kind: "IDLE", seconds: 4, note: "" },
   { id: 5, timeMs: 10000, kind: "STOP", note: "" },
 ];
+
+test("MSYNC highlights match the exported cue and the correct definition", () => {
+  const { source } = compileManualScore(track, manualBlocks);
+  const lines = source.split("\n");
+  const index = indexMsync(source);
+  const drill = msyncHighlight(index, 0, "INLINE");
+  const flavor = msyncHighlight(index, 0, "FLAVOR");
+  assert.match(lines[drill.cue], /^00:00\.000 INLINE=/);
+  assert.match(lines[drill.definition], /^\[INLINE:/);
+  assert.match(lines[flavor.cue], /^00:00\.000 FLAVOR=/);
+  assert.match(lines[flavor.definition], /^\[FLAVOR:/);
+  const idle = msyncHighlight(index, 7000);
+  assert.match(lines[idle.cue], /IDLE$/);
+  assert.equal(idle.definition, undefined);
+  assert.deepEqual(msyncHighlight(index, 8000, "INLINE"), { cue: undefined, definition: undefined });
+});
 
 test("manual SESSION uses custom values and flags invalid fields", () => {
   const session = { COUNTDOWN: "6", CYCLE_PAUSE: "0.125", ROBOT_LEAD: "1.25" };

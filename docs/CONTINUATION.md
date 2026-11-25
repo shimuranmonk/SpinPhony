@@ -1,5 +1,7 @@
 # SpinPhony continuation
 
+- **Live MSYNC highlights** · Auto Preview now shows its generated file and follows the current exported cue during audio playback. The manual editor highlights the selected block's exact cue and definition. Highlights are display-only.
+
 - **Skill-aware Auto and Custom drills** · Auto starts from Nova Level 1 or a locally saved Custom pattern, applies the player’s speed/spin ceiling, and allows per-ball Preview edits before export. Music shows Nova Drills and Custom. Physical landing checks and automated FLAVOR cues remain future work.
 
 - **Long-section Auto fallback** · For active passages at least 45 seconds long, Auto schedules finite practice blocks up to 20 seconds, with at least eight seconds of planned recovery between blocks. A 3:47 one-section Forehand Drive test at 50 balls/min schedules 125 feeds. The planning values and physical timing remain provisional.

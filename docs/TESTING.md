@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The two live text windows passed the build and 21 tests. Chrome verified Auto playback and Stop, manual drill rename, same-time FLAVOR versus INLINE selection, STOP cue-only highlighting, and unchanged preview/download equality.
+
 - The skill-aware Auto follow-up passed the production build and 20 tests. Chrome at 390 px verified the library summaries, Amateur generation, Height/Drop/Reps editing, valid MSYNC export, local persistence across reload, and reuse of an adjusted drill in a fresh generation. Physical placement was not tested.
 
 - The long-section fallback passed the production build and 19 tests. Its synthetic Footloose-length regression reproduces the one-section input and verifies 125 Forehand Drive cues, multiple practice blocks, and final recovery. The original recording and robot delivery were not tested.

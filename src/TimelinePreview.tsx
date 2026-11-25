@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import type { Drill } from "./catalog.js";
 import { timestamp } from "./generator.js";
 import type { MusicEvent } from "./musicEvents.js";
+import { MsyncTextPreview } from "./MsyncTextPreview.js";
 
 type Props = {
   file: File;
   text: string;
+  source: string;
   lines: { timeMs: number; line: number }[];
   events: MusicEvent[];
   drills: Drill[];
@@ -28,7 +30,7 @@ function activeIndexAt(markers: { timeMs: number }[], seconds: number) {
 }
 
 export function TimelinePreview(props: Props) {
-  const { file, text, lines, events, drills, feedBpm, validationError, canDownload, onDownload, onEdit } = props;
+  const { file, text, source, lines, events, drills, feedBpm, validationError, canDownload, onDownload, onEdit } = props;
   const rates = drills.flatMap(drill => drill.parameters?.map(ball => ball.BPM) ?? [feedBpm]).filter(Number.isFinite);
   const minRate = Math.min(...rates);
   const maxRate = Math.max(...rates);
@@ -189,6 +191,7 @@ export function TimelinePreview(props: Props) {
           </div>
         </div>
       </div>
+      <MsyncTextPreview source={source} timeMs={events[activeEvent]?.timeMs} />
     </section>
   );
 }
