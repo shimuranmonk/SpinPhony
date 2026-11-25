@@ -1,5 +1,6 @@
 import { msyncHeader, timestamp, validateTrack } from "./generator.js";
 import { nativeDrills } from "./nativeDrills.js";
+import { SPIN_LIMITS } from "./msync-v1/limits.js";
 import type { Track } from "./rhythm.js";
 
 export const ballFields = {
@@ -38,7 +39,20 @@ export const blockOrder: Record<BlockKind, number> = { CDRILL: 0, FLAVOR: 1, IDL
 const clean = (text: string) => text.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/gu, " ").trim();
 const alias = (name: string, prefix: string) => name.trim().toUpperCase().replace(new RegExp("^" + prefix + "_"), "");
 const validAlias = /^[A-Z][A-Z0-9_]{0,35}$/;
-export const spinLimits = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 9, 8, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+const spinLimits: Readonly<Partial<Record<string, number>>> = SPIN_LIMITS;
+
+export function maxSpinAt(speed: number) {
+  return spinLimits[String(speed)];
+}
+
+export function fitBallSpeedSpin(ball: Ball): Ball {
+  // Keep an empty field editable. Apply the envelope as soon as both values are known.
+  const halfStep = (value: number, max: number) => Math.round(Math.min(max, Math.max(0, value)) * 2) / 2;
+  const SPEED = Number.isFinite(ball.SPEED) ? halfStep(ball.SPEED, ballFields.SPEED[1]) : ball.SPEED;
+  const maxSpin = maxSpinAt(SPEED) ?? ballFields.SPIN[1];
+  const SPIN = Number.isFinite(ball.SPIN) ? halfStep(ball.SPIN, maxSpin) : ball.SPIN;
+  return { ...ball, SPEED, SPIN };
+}
 const fields = ["SPEED", "SPIN", "TYPE", "HEIGHT", "DROP", "BPM", "REPS"] as const;
 
 export function blockLabel(block: Block) {
@@ -58,7 +72,7 @@ export function checkField(key: BallField, value: number) {
   }
 }
 function checkSpin(speed: number, spin: number) {
-  if (spin > spinLimits[speed * 2]) throw new Error("Spin exceeds the limit for this speed.");
+  if (spin > (maxSpinAt(speed) ?? -1)) throw new Error("Spin exceeds the limit for this speed.");
 }
 
 export const sessionFields = {

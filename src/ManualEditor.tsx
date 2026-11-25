@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { timestamp } from "./generator.js";
 import { nativeDrills } from "./nativeDrills.js";
-import { ballFields, blockKinds, blockLabel, blockOrder, drillName, flavorFields, initialBall, loadBuiltInBalls, maxBalls, sessionFields } from "./manualScore.js";
+import { ballFields, blockKinds, blockLabel, blockOrder, drillName, fitBallSpeedSpin, flavorFields, initialBall, loadBuiltInBalls, maxBalls, maxSpinAt, sessionFields } from "./manualScore.js";
 import { validateMsyncSource } from "./msync-v1/validator.js";
 import { blocksToCueMap, CueMap } from "./CueMap.js";
 import { musicGuidance } from "./musicGuidance.js";
@@ -263,10 +263,18 @@ export function ManualEditor({ file, track, draft, blocks, onChange, onDownload,
           <div className="manual-ball">
             {(Object.keys(ballFields) as BallField[]).map(key => {
               const [min, max, step] = ballFields[key];
-              return <label key={key}>{key}<input type="number" min={min} max={max} step={step}
+              const spinMax = key === "SPIN" ? maxSpinAt(ball.SPEED) : undefined;
+              const coupled = key === "SPEED" || key === "SPIN";
+              return <label key={key}>{key}<input type="number" min={min} max={spinMax ?? max} step={step}
                 value={Number.isFinite(ball[key]) ? ball[key] : ""}
                 onChange={event => update({ balls: block.balls.map((item, i) =>
-                  i === index ? { ...item, [key]: event.target.valueAsNumber } : item) })} /></label>;
+                  i === index ? { ...item, [key]: event.target.valueAsNumber } : item) })}
+                onBlur={coupled ? event => {
+                  const committed = fitBallSpeedSpin({ ...ball, [key]: event.currentTarget.valueAsNumber });
+                  update({ balls: block.balls.map((item, i) => i === index ? committed : item) });
+                } : undefined}
+                onKeyDown={coupled ? event => { if (event.key === "Enter") event.currentTarget.blur(); } : undefined}
+                />{spinMax !== undefined && <small>Max {spinMax} at this speed</small>}</label>;
             })}
           </div>
           <div className="manual-type-row">

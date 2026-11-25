@@ -1,6 +1,6 @@
 import type { Drill } from "./catalog.js";
 import type { Profile } from "./generator.js";
-import { ballFields, checkField, loadBuiltInBalls, initialBall, spinLimits } from "./manualScore.js";
+import { ballFields, checkField, loadBuiltInBalls, initialBall, maxSpinAt } from "./manualScore.js";
 import type { Ball, BallField } from "./manualScore.js";
 import { nativeDrills } from "./nativeDrills.js";
 
@@ -32,7 +32,7 @@ export function prepareAutoDrill(drill: Drill, profile: Profile): Drill {
   const adjustment = drill.category === "Nova Drills" ? limit.adjustment : 0;
   const parameters = drill.parameters?.map(ball => {
     const SPEED = Math.min(ball.SPEED + adjustment, limit.speed);
-    return { ...ball, SPEED, SPIN: Math.min(ball.SPIN + adjustment, limit.spin, spinLimits[SPEED * 2]),
+    return { ...ball, SPEED, SPIN: Math.min(ball.SPIN + adjustment, limit.spin, maxSpinAt(SPEED) ?? 0),
       BPM: Math.min(90, ball.BPM + (drill.category === "Nova Drills" && profile.pace === "active" ? 6 : 0)) };
   });
   return parameters ? { ...drill, parameters, balls: pattern(parameters) } : drill;
@@ -44,7 +44,7 @@ export function validateAutoBalls(balls: Ball[], skill?: Skill) {
     try {
       for (const key of Object.keys(ballFields) as BallField[]) checkField(key, ball[key]);
       if (ball.TYPE !== "top" && ball.TYPE !== "back") throw new Error("TYPE must be top or back.");
-      if (ball.SPIN > spinLimits[ball.SPEED * 2]) throw new Error("Spin exceeds the robot limit at this speed.");
+      if (ball.SPIN > (maxSpinAt(ball.SPEED) ?? -1)) throw new Error("Spin exceeds the robot limit at this speed.");
       if (skill && (ball.SPEED > skillLimits[skill].speed || ball.SPIN > skillLimits[skill].spin)) {
         throw new Error("Speed or Spin exceeds the " + skill + " limit.");
       }
