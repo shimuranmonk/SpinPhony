@@ -1,5 +1,11 @@
 # SpinPhony testing
 
+## Release checkpoint (2026-11-26)
+
+The form-aware Auto and shared editor release is tracked in [PR #12](https://github.com/shimuranmonk/SpinPhony/pull/12). The production build and 26 automated tests passed. Targeted Chrome checks used a synthetic WAV and verified Auto-to-editor generation, exact cue seeking, bookmarks, Custom drill reuse and a shared Preview/download. The 125-feed case uses a synthetic 3:47 fixture. It does not establish delivery count or intensity on the original song or on hardware. Annotated-song quality, controller playback and GitHub Pages deployment remain pending.
+
+## Historical checks
+
 - The shared Preview and source picker passed the build and all 26 tests. Chrome verified the taller window, unique INLINE choices, reuse across timestamps, cue spacing, named markers, playback highlights and an exact preview/download match.
 
 - The streamlined Preview passed the build and all 25 tests. Chrome at 390 px verified the taller read-only file, playback cue seeking, automatic block placement, cancellation preserving the existing draft, and MSYNC validation after replacement.

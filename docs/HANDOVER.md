@@ -1,37 +1,20 @@
 # SpinPhony handover
 
-## Customization revision (2026-11-24)
+## Current checkpoint (2026-11-26)
 
-The latest UI presents **SpinPhony - Soundtrack of a Loop**, an MSYNC conductor for the Nova Prime controller. NDRILLS export pasted controller references at level 1–3. CDRILLS export INLINE definitions with up to ten sequential BALL entries. FLAVOR edits speed, feed, spin and height together. IDLE reserves timeline space and exports bare IDLE. STOP ends the authored score. The live draft and download share one serializer. Missing or invalid cues show a draft comment and prevent export. The colored strip shows planned spans and markers rather than measured robot activity.
+The [current release](https://github.com/shimuranmonk/SpinPhony/pull/12) combines form-aware Auto with the block editor. Music holds audio, Training Profile and the Nova/Custom library. Generate Timeline opens Preview and fills the MSYNC Editor with the same planned cues. Replacing an existing draft requires confirmation. Preview, cue highlights and downloads follow the current editor draft.
 
-The block formats and live preview are verified in the browser and against the frozen file validator. The controller still needs to resolve NDRILL IDs from its own catalog. Exact native single-cycle length and physical robot constraints remain unverified. The coaching planner remains a separate development task.
+The editor supports CDRILL, FLAVOR, IDLE, STOP and yellow FLAG bookmarks. It can load a Nova drill and level starting at the chosen ball or reuse a complete INLINE definition from the draft. Identical definitions are shared. Block edits are independent, so changing a ball can split a definition without changing other blocks. Save as Custom stores a named pattern in the browser. CLEAR removes blocks and keeps the selected audio and SESSION fields. The separate Music Map is paused. Music markers remain available as drop targets.
 
-## Initial Complete Customization checkpoint (2026-11-23)
+## What Auto can do today
 
-The maintainer approved a separate block editor alongside Auto Generate. Musical markers are drop targets and timing references. The manual score stays separate from automatic generation and persists across tab switches until the audio file is replaced. A block can be added by drag-and-drop or by choosing a block type and pressing Add. Click a placed block to edit its time, parameters or duration. Feed presets currently set 35, 45 or 60 balls/minute as editable UI starting points. These are file-level choices awaiting robot calibration. Idle duration reserves timeline space and exports as a bare IDLE cue. Rest duration exports as REST. Stop ends the authored score, including before audio end.
+Auto detects accents and acoustically distinct sections, schedules finite cycles, and uses provisional work and recovery budgets when sections are long. Nova Level 1 and saved Custom settings are starting points for ball parameters. Player skill bounds speed and spin, while the robot envelope further limits legal combinations. Auto still tends to prefer one low-demand drill per section and can underuse a selected pool. The thresholds need annotated-music and player/robot validation.
 
-The local base was `b759606`; the equivalent remote Preview base is `acdb242`. Production build, 14 automated tests, and the Chrome manual-editor download check passed. The next gate is to validate device-specific limits and map verified built-in drill IDs. The catalog-backed Drill and Custom Drill blocks currently export INLINE. There was no robot operation.
-
-## Checkpoint
-
-PCON v1 is installed locally and bundled in the repository. The six continuity roles passed the bundled validator on the existing initialization branch. The reviewed `main` was the README-only commit `1d4429629c38ca934e4d994eeabf992104d82142`. The existing initialization commit `31ee5d1ab945e169af596d6d1af2d019d578e117` was preserved and opened for review in [PR #1](https://github.com/shimuranmonk/SpinPhony/pull/1). Development started from a clean, separate SpinPhony checkout of that branch.
-
-The standalone browser generator decodes local audio, estimates a steady rhythm, accepts manual timing, rotates selected drill patterns on a beat grid, previews cues and downloads MSYNC v1. The [architecture](ARCHITECTURE.md) records format and catalog provenance and the [testing record](TESTING.md) records build, automated and browser checks.
-
-The 2026-11-23 follow-up adds editing for generated work and recovery times and drill assignments. The downloaded file reflects those edits. The Pages workflow is ready for review and requires a manual run from the default branch.
+The [coaching contract](COACHING_SPEC_V1.md) describes the target behavior. The current release implements an initial subset. Full adaptive phase/workload policy, timed Auto FLAVOR changes, and exact next-ball recovery remain open. See the [architecture](ARCHITECTURE.md) and [testing](TESTING.md) for implemented behavior and observed checks.
 
 ## Resume
 
-1. Inspect current branch heads and PR state. Merge decisions belong to the maintainer. After each parent lands, confirm the next PR targets the intended base and its diff contains only its own changes.
-2. Once the application reaches `main`, set the Pages publishing source to GitHub Actions and run **Publish SpinPhony** from `main`. Verify the hosted revision with a real audio file and an MSYNC download.
-3. Expand the recorded-music checks across genres, browsers and codecs. Record tempo and beat offset against labeled references and record tracks that require manual timing.
-
-The beat-detection follow-up adds correlation of repeated onset patterns and distinguishes estimated timing from manual fallback in the UI. Review the follow-up against the timeline branch, then expand music testing using beat annotations.
-
-The training-library follow-up adds 37 manual-derived patterns and five coaching drills, with source filtering and an unchanged three-drill starter selection. Review the linked manual coverage and distinguish inline feed approximations from calibrated presets.
-
-The audio-preview follow-up preserves Setup inputs across tab switches and stops playback when leaving Preview or editing the timeline. Comments are optional per cue. Automatic drill names and descriptions are exported as full-line MSYNC comments. Recover the exact approved tagline before updating the header.
-
-The music-led score now controls marker timing and actions. Section labels are editable. Assigned sections reserve their span for their own drill repeats, so their interior hit lines remain visible while the section takes over their actions. Verify detection against annotated tracks before claiming verse, chorus or drop recognition.
-
-The read-only event panel joins original detections, authored markers and scheduled actions by timestamp. Removed markers stay visible as candidates, and section-controlled hits show which drill continues. The view explains the existing drill rotation and section behavior.
+1. Read [continuation](CONTINUATION.md), compare the checkout with GitHub, and recover the verified revision from the release PR.
+2. Use annotated diverse tracks to assess section boundaries and planned cycle distribution. Investigate why multiple selected drills may collapse to one, including long single-section tracks.
+3. Verify MSYNC consumer timing and actual placements when robot testing is authorized. Keep validator results distinct from runtime and hardware observations.
+4. If hosted deployment is requested, configure GitHub Pages for Actions and dispatch **Publish SpinPhony** from `main`. Verify the served revision and a valid download with a local audio file.
