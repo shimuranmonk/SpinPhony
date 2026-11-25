@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The Speed/Spin editing follow-up passed the production build and all 27 tests, including all 21 table entries. Chrome at 390 px verified clamping a typed spin of 12 to 10 at speed 4, reducing Spin when Speed is lowered, preserving a legal half step, and validating the resulting file.
+
 ## Release checkpoint (2026-11-26)
 
 The form-aware Auto and shared editor release is tracked in [PR #12](https://github.com/shimuranmonk/SpinPhony/pull/12). The production build and 26 automated tests passed. Targeted Chrome checks used a synthetic WAV and verified Auto-to-editor generation, exact cue seeking, bookmarks, Custom drill reuse and a shared Preview/download. The 125-feed case uses a synthetic 3:47 fixture. It does not establish delivery count or intensity on the original song or on hardware. Annotated-song quality, controller playback and GitHub Pages deployment remain pending.

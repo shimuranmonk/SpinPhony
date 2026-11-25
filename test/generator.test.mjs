@@ -9,11 +9,24 @@ import { novaPatterns, prepareAutoDrill, validateAutoBalls } from "../.test-buil
 import { indexMsync, msyncHighlight } from "../.test-build/msyncHighlight.js";
 import { autoCuesToBlocks } from "../.test-build/autoTransfer.js";
 import { musicGuidance } from "../.test-build/musicGuidance.js";
-import { compileManualScore, initialBall, loadBuiltInBalls } from "../.test-build/manualScore.js";
+import { compileManualScore, fitBallSpeedSpin, initialBall, loadBuiltInBalls, maxSpinAt } from "../.test-build/manualScore.js";
 
 const track = { filename: "pulse.wav", durationMs: 24000, sha256: "a".repeat(64), rhythm: { bpm: 120 }, markers: [{ timeMs: 0, kind: "section" }, { timeMs: 250, kind: "hit" }, { timeMs: 1320, kind: "hit" }] };
 const rhythm = { bpm: 120, firstBeatMs: 250 };
 const profile = { pace: "steady", handedness: "right" };
+
+test("committed ball edits use the frozen Speed/Spin envelope", () => {
+  const caps = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 9, 8, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+  for (const [index, limit] of caps.entries()) {
+    const SPEED = index / 2;
+    assert.equal(maxSpinAt(SPEED), limit);
+    assert.deepEqual(fitBallSpeedSpin({ ...initialBall, SPEED, SPIN: 12 }), { ...initialBall, SPEED, SPIN: limit });
+  }
+  assert.equal(fitBallSpeedSpin({ ...initialBall, SPEED: 1, SPIN: 2.5 }).SPIN, 2.5);
+  assert.equal(fitBallSpeedSpin({ ...initialBall, SPEED: 4.49, SPIN: 12 }).SPEED, 4.5);
+  assert.equal(fitBallSpeedSpin({ ...initialBall, SPEED: 11, SPIN: 6 }).SPIN, 0);
+  assert.ok(Number.isNaN(fitBallSpeedSpin({ ...initialBall, SPIN: NaN }).SPIN));
+});
 
 test("music guidance joins beat, accent, and estimated phrase labels and keeps beats optional", () => {
   const hitMarkers = Array.from({ length: 23 }, (_, i) => ({ kind: "hit", timeMs: 250 + i * 500, strength: .9 }));
