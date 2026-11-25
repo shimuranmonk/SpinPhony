@@ -265,7 +265,9 @@ export function ManualEditor({ file, track, draft, blocks, onChange, onDownload,
               const [min, max, step] = ballFields[key];
               const spinMax = key === "SPIN" ? maxSpinAt(ball.SPEED) : undefined;
               const coupled = key === "SPEED" || key === "SPIN";
-              return <label key={key}>{key}<input type="number" min={min} max={spinMax ?? max} step={step}
+              const label = key === "SPEED" ? key + "-mx" + max
+                : spinMax === undefined ? key : key + "-mx" + spinMax;
+              return <label key={key}>{label}<input type="number" min={min} max={spinMax ?? max} step={step}
                 value={Number.isFinite(ball[key]) ? ball[key] : ""}
                 onChange={event => update({ balls: block.balls.map((item, i) =>
                   i === index ? { ...item, [key]: event.target.valueAsNumber } : item) })}
@@ -274,7 +276,7 @@ export function ManualEditor({ file, track, draft, blocks, onChange, onDownload,
                   update({ balls: block.balls.map((item, i) => i === index ? committed : item) });
                 } : undefined}
                 onKeyDown={coupled ? event => { if (event.key === "Enter") event.currentTarget.blur(); } : undefined}
-                />{spinMax !== undefined && <small>Max {spinMax} at this speed</small>}</label>;
+                /></label>;
             })}
           </div>
           <div className="manual-type-row">
