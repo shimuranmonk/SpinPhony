@@ -9,7 +9,7 @@ export const ballFields = {
 export type BallField = keyof typeof ballFields;
 export type Ball = Record<BallField, number> & { TYPE: "top" | "back" };
 export const flavorFields = ["SPEED", "BPM", "SPIN", "HEIGHT"] as const;
-export const blockKinds = ["CDRILL", "FLAVOR", "IDLE", "STOP"] as const;
+export const blockKinds = ["CDRILL", "FLAVOR", "IDLE", "STOP", "FLAG"] as const;
 export const maxBalls = 10;
 export type BlockKind = typeof blockKinds[number];
 export type Block = {
@@ -34,11 +34,11 @@ export function loadBuiltInBalls(balls: Ball[], start: number, key: string, leve
   return [...balls.slice(0, start), ...loaded, ...balls.slice(start + loaded.length)];
 }
 
-export const blockOrder: Record<BlockKind, number> = { CDRILL: 0, FLAVOR: 1, IDLE: 2, STOP: 3 };
+export const blockOrder: Record<BlockKind, number> = { CDRILL: 0, FLAVOR: 1, IDLE: 2, STOP: 3, FLAG: 4 };
 const clean = (text: string) => text.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/gu, " ").trim();
 const alias = (name: string, prefix: string) => name.trim().toUpperCase().replace(new RegExp("^" + prefix + "_"), "");
 const validAlias = /^[A-Z][A-Z0-9_]{0,35}$/;
-const spinLimits = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 9, 8, 8, 7, 6, 5, 4, 3, 2, 1, 0];
+export const spinLimits = [2, 3, 4, 5, 6, 7, 8, 9, 10, 10, 9, 8, 8, 7, 6, 5, 4, 3, 2, 1, 0];
 const fields = ["SPEED", "SPIN", "TYPE", "HEIGHT", "DROP", "BPM", "REPS"] as const;
 
 export function blockLabel(block: Block) {
@@ -51,7 +51,7 @@ export function drillName(block: Block) {
   return clean(block.name) || block.inheritedName || "Custom drill";
 }
 
-function checkField(key: BallField, value: number) {
+export function checkField(key: BallField, value: number) {
   const [min, max, step] = ballFields[key];
   if (!Number.isFinite(value) || value < min || value > max || !Number.isInteger((value - min) / step)) {
     throw new Error(key + " must be between " + min + " and " + max + " in steps of " + step + ".");
@@ -73,6 +73,9 @@ export const defaultSession: SessionSettings = { COUNTDOWN: "4", CYCLE_PAUSE: "1
 export function compileManualScore(track: Track, blocks: Block[], session = defaultSession) {
   validateTrack(track);
   const definitions = new Map<string, string>();
+  const inlineNames = new Map<string, string>();
+  const inlineDrills: { alias: string; title: string; block: Block }[] = [];
+  const acceptedBlocks: Block[] = [];
   const cues: string[] = [];
   const issues: string[] = [];
   const sessionLines = (Object.keys(sessionFields) as SessionField[]).map(key => {
@@ -86,7 +89,8 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
     }
     return key + "=" + Number(value);
   });
-  const sorted = [...blocks].sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
+  const sorted = blocks.filter(block => block.kind !== "FLAG")
+    .sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
   let previous: Block | undefined;
   let pausedUntil = 0;
   let active: Block | undefined;
@@ -102,6 +106,7 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
     const { kind, timeMs, seconds, id } = block;
     const time = Number.isInteger(timeMs) && timeMs >= 0 ? timestamp(timeMs) : "Invalid time";
     const label = clean(blockLabel(block));
+    if (kind === "CDRILL" && cues.length) cues.push("");
     cues.push("# " + label + (block.note.trim() ? " — " + clean(block.note) : ""));
     try {
       if (!Number.isInteger(timeMs) || timeMs < 0 || timeMs > track.durationMs || (timeMs === track.durationMs && kind !== "STOP")) {
@@ -116,8 +121,6 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
       if (kind === "CDRILL") {
         const title = drillName(block);
         if (!title || !block.balls.length || block.balls.length > maxBalls) throw new Error("Enter a name and 1–10 ball entries.");
-        const suffix = title.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 25);
-        const name = "INL_" + (/^[A-Z]/.test(suffix) ? suffix : "DRILL_" + suffix) + "_" + id;
         const balls = block.balls.map((ball, index) => {
           for (const key of fields) {
             if (key !== "TYPE") checkField(key, ball[key]);
@@ -126,8 +129,15 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
           checkSpin(ball.SPEED, ball.SPIN);
           return "BALL=" + (index + 1) + fields.map(key => ";" + key + "=" + ball[key]).join("");
         });
-        define(definitions, name, ["# Drill: " + title, "[INLINE:" + name + "]", "NAME=" + title,
-          "RANDOM=" + block.random, ...balls].join("\n"));
+        const body = ["NAME=" + title, "RANDOM=" + block.random, ...balls].join("\n");
+        let name = inlineNames.get(body);
+        if (!name) {
+          const suffix = title.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 25);
+          name = "INL_" + (/^[A-Z]/.test(suffix) ? suffix : "DRILL_" + suffix) + "_" + id;
+          define(definitions, name, ["# Drill: " + title, "[INLINE:" + name + "]", body].join("\n"));
+          inlineNames.set(body, name);
+          inlineDrills.push({ alias: name, title, block });
+        }
         command = "INLINE=" + name + (block.once ? ";ONCE" : "");
         active = block;
         activated = true;
@@ -153,6 +163,7 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
         }
       }
       cues.push(time + " " + command);
+      acceptedBlocks.push(block);
       previous = block;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -166,5 +177,5 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
     ["[SESSION]", ...sessionLines].join("\n"),
     ["[AUDIO]", "FILENAME=" + track.filename, "SHA256=" + track.sha256, "DURATION=" + timestamp(track.durationMs)].join("\n"),
     ...definitions.values(), ["[CUES]", ...cues].join("\n")].join("\n\n") + "\n";
-  return { source, issues };
+  return { source, issues, inlineDrills, acceptedBlocks };
 }

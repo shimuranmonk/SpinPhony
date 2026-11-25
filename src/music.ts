@@ -1,4 +1,7 @@
-export type MusicMarker = { timeMs: number; kind: "hit" | "section" };
+export type SectionProfile = { level: number; brightness: number; hitsPerSecond: number };
+export type MusicMarker =
+  | { timeMs: number; kind: "hit"; strength?: number }
+  | { timeMs: number; kind: "section"; profile?: SectionProfile };
 
 export function detectMusicMarkers(channels: Float32Array[], sampleRate: number): MusicMarker[] {
   const frameSamples = Math.round(sampleRate / 100);
@@ -25,7 +28,7 @@ export function detectMusicMarkers(channels: Float32Array[], sampleRate: number)
       + Math.max(0, brightness[frame] - (frame ? brightness[previous] : 0));
   }
 
-  const markers: MusicMarker[] = [{ timeMs: 0, kind: "section" }];
+  const markers: MusicMarker[] = [];
   const peak = attack.reduce((max, value) => Math.max(max, value), 0);
   const hits: number[] = [];
   const lookaround = 20;
@@ -65,16 +68,28 @@ export function detectMusicMarkers(channels: Float32Array[], sampleRate: number)
 
   const sections = [0];
   for (const candidate of candidates.sort((a, b) => b.score - a.score)) {
-    if (sections.some(frame => Math.abs(frame - candidate.frame) * frameMs < 3500)
-      || (length - candidate.frame) * frameMs < 2500) continue;
     const nearby = hits.filter(frame => Math.abs(frame - candidate.frame) * frameMs <= 220);
     const boundary = nearby.reduce((best, frame) =>
       attack[frame] > attack[best] ? frame : best, nearby[0] ?? candidate.frame);
+    if (sections.some(frame => Math.abs(frame - boundary) * frameMs < 3500)
+      || (length - boundary) * frameMs < 2500) continue;
     sections.push(boundary);
-    markers.push({ timeMs: Math.round(boundary * frameMs), kind: "section" });
+  }
+  sections.sort((a, b) => a - b);
+  let nextHit = 0;
+  for (const [index, start] of sections.entries()) {
+    const end = sections[index + 1] ?? length;
+    const frames = Math.max(1, end - start);
+    const firstHit = nextHit;
+    while (nextHit < hits.length && hits[nextHit] < end) nextHit++;
+    markers.push({ timeMs: Math.round(start * frameMs), kind: "section", profile: {
+      level: (levelSum[end] - levelSum[start]) / frames,
+      brightness: (brightSum[end] - brightSum[start]) / frames,
+      hitsPerSecond: (nextHit - firstHit) * 1000 / (frames * frameMs),
+    } });
   }
   for (const hit of hits) {
-    markers.push({ timeMs: Math.round(hit * frameMs), kind: "hit" });
+    markers.push({ timeMs: Math.round(hit * frameMs), kind: "hit", strength: attack[hit] / peak });
   }
   return markers.sort((a, b) => a.timeMs - b.timeMs);
 }

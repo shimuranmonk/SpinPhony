@@ -1,7 +1,8 @@
 import type { Drill } from "./catalog.js";
-import { timestamp, validateTrack } from "./generator.js";
+import { cycleDuration, timestamp, validateTrack } from "./generator.js";
 import type { Cue } from "./generator.js";
 import type { Track } from "./rhythm.js";
+import type { SectionProfile } from "./music.js";
 
 type TimelineLine = {
   timeMs: number;
@@ -12,16 +13,105 @@ type TimelineLine = {
   note: string;
 };
 
-export function suggestTimeline(track: Track, drills: Drill[]): string {
+function movement(drill: Drill) {
+  const drops = drill.balls.map(ball => ball.drop);
+  return Math.max(...drops) - Math.min(...drops);
+}
+
+function similar(a: SectionProfile, b: SectionProfile, peakLevel: number, peakBrightness: number) {
+  return Math.abs(a.hitsPerSecond - b.hitsPerSecond) <= .45
+    && Math.hypot((a.level - b.level) / Math.max(.001, peakLevel),
+      (a.brightness - b.brightness) / Math.max(.001, peakBrightness)) <= .15;
+}
+
+const longSectionMs = 45000;
+const workBlockMs = 20000;
+const recoveryMs = 8000;
+const finalRecoveryMs = 5000;
+
+function scheduleLongSection(
+  assignments: Map<number, string>, start: number, end: number, drill: Drill, cycleMs: number,
+  opening: boolean, closing: boolean,
+) {
+  // These are provisional planning budgets. Whole, finite cycles use the same text compiler as other sections.
+  const slotMs = Math.ceil(cycleMs) + 1;
+  const closingCycles = closing ? Math.min(3, Math.floor(workBlockMs / slotMs)) : 0;
+  const closingStart = end - (closing ? closingCycles * slotMs + finalRecoveryMs : 0);
+  const workEnd = closingStart - recoveryMs;
+  let cursor = start;
+
+  function work(count: number, label: string) {
+    assignments.set(cursor, drill.name + " x" + count + " | Auto · " + label);
+    cursor += count * slotMs;
+    assignments.set(cursor, "- | Auto · Recovery, no feeds scheduled");
+    cursor += recoveryMs;
+  }
+
+  if (opening) work(Math.min(3, Math.floor(workBlockMs / slotMs)), "Opening practice");
+  while (cursor + slotMs <= workEnd) {
+    const count = Math.floor(Math.min(workBlockMs, workEnd - cursor) / slotMs);
+    work(count, "Practice block");
+  }
+  if (closingCycles > 0) {
+    assignments.set(closingStart, drill.name + " x" + closingCycles + " | Auto · Closing practice");
+    assignments.set(end - finalRecoveryMs, "- | Auto · Final recovery, no feeds scheduled");
+  }
+}
+
+export function suggestTimeline(track: Track, drills: Drill[], bpm: number): string {
   validateTrack(track);
   if (!drills.length) throw new Error("Select at least one drill.");
-  let hit = 0;
-  let section = 0;
-  const lines = track.markers.filter(marker => marker.timeMs < track.durationMs).map(marker => {
-    const time = timestamp(marker.timeMs);
-    if (marker.kind === "section") return time + " | SECTION | - | Section " + ++section;
-    return time + " | HIT | " + drills[hit++ % drills.length].name;
+  const markers = track.markers.filter(marker => marker.timeMs < track.durationMs);
+  const sections = markers.filter(marker => marker.kind === "section");
+  const ranked = drills.filter(drill => drill.balls.length)
+    .sort((a, b) => movement(a) - movement(b) || Number(a.random) - Number(b.random) || a.balls.length - b.balls.length);
+  const peakLevel = Math.max(0, ...sections.map(section => section.profile?.level ?? 0));
+  const peakBrightness = Math.max(0, ...sections.map(section => section.profile?.brightness ?? 0));
+  const patterns: { profile: SectionProfile; drill: Drill }[] = [];
+  const assignments = new Map<number, string>();
+
+  sections.forEach((section, index) => {
+    const end = sections[index + 1]?.timeMs ?? track.durationMs;
+    const span = end - section.timeMs;
+    const label = "Section " + (index + 1);
+    const acoustic = section.profile;
+    if (acoustic && acoustic.level <= Math.max(.002, peakLevel * .25) && acoustic.hitsPerSecond < .6) {
+      assignments.set(section.timeMs, "- | " + label + " · Quiet passage, no feeds scheduled");
+      return;
+    }
+    const bookend = index === 0 || index === sections.length - 1;
+    const repeated = !bookend && acoustic
+      ? patterns.find(pattern => similar(pattern.profile, acoustic, peakLevel, peakBrightness)) : undefined;
+    const fits = ranked.filter(drill => cycleDuration(drill, bpm) + 2002 <= span);
+    const alternate = fits.find(drill => movement(drill) === movement(fits[0])
+      && drill.random === fits[0].random && drill.balls.length === fits[0].balls.length
+      && drill.balls.some((ball, i) => ball.drop !== fits[0].balls[i].drop || ball.spin !== fits[0].balls[i].spin));
+    const drill = repeated && fits.includes(repeated.drill) ? repeated.drill
+      : !bookend && acoustic && acoustic.level > peakLevel * .75 ? alternate ?? fits[0] : fits[0];
+    if (!drill) {
+      assignments.set(section.timeMs, "- | " + label + " · No complete cycle and gap fit");
+      return;
+    }
+    if (!bookend && acoustic && !repeated) patterns.push({ profile: acoustic, drill });
+    const cycleMs = cycleDuration(drill, bpm);
+    if (span >= longSectionMs && Math.ceil(cycleMs) + 1 <= workBlockMs) {
+      scheduleLongSection(assignments, section.timeMs, end, drill, cycleMs,
+        index === 0, index === sections.length - 1);
+      return;
+    }
+    // Equal slots leave at least two seconds without a planned delivery between finite cycles.
+    const cap = Math.floor(span / (cycleMs + 2002));
+    const target = bookend ? 3 : 6;
+    const count = Math.min(target, cap);
+    const decision = repeated?.drill === drill ? "Similar passage, same drill"
+      : index === 0 ? "Gentle opening" : bookend ? "Closing practice" : "Section practice";
+    assignments.set(section.timeMs, drill.name + " x" + count + " | " + label + " · " + decision);
   });
+
+  const lines = [
+    ...Array.from(assignments, ([timeMs, assignment]) => ({ timeMs, text: "SECTION | " + assignment })),
+    ...markers.filter(marker => marker.kind === "hit").map(marker => ({ timeMs: marker.timeMs, text: "HIT | -" })),
+  ].sort((a, b) => a.timeMs - b.timeMs).map(line => timestamp(line.timeMs) + " | " + line.text);
   return [...lines, timestamp(track.durationMs) + " | STOP"].join("\n");
 }
 
@@ -65,7 +155,7 @@ export function readTimeline(text: string, durationMs: number, drills: Drill[], 
     if (!section.drill) return;
     const end = sections[index + 1]?.timeMs ?? durationMs;
     const slot = (end - section.timeMs) / section.count;
-    if (slot < section.drill.balls.length * 60000 / bpm) {
+    if (!Number.isFinite(slot) || slot < cycleDuration(section.drill, bpm)) {
       throw new Error("Line " + (section.line + 1) + ". This drill and repeat count do not fit before the next section.");
     }
     covered.push({ start: section.timeMs, end });
@@ -86,5 +176,13 @@ export function readTimeline(text: string, durationMs: number, drills: Drill[], 
       cues.push({ timeMs: line.timeMs, command: "INLINE", drill: line.drill, once: true, note: line.note });
     }
   }
-  return { lines, cues: cues.sort((a, b) => a.timeMs - b.timeMs) };
+  cues.sort((a, b) => a.timeMs - b.timeMs);
+  for (const [index, cue] of cues.entries()) {
+    if (cue.command !== "INLINE" || !cue.drill.parameters) continue;
+    const next = cues[index + 1];
+    if (next && next.timeMs - cue.timeMs + 1 < cycleDuration(cue.drill, bpm)) {
+      throw new Error("The drill at " + timestamp(cue.timeMs) + " does not fit before the next cue. Adjust its ball settings or regenerate.");
+    }
+  }
+  return { lines, cues };
 }

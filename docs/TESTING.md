@@ -1,5 +1,31 @@
 # SpinPhony testing
 
+## Release checkpoint (2026-11-26)
+
+The form-aware Auto and shared editor release is tracked in [PR #12](https://github.com/shimuranmonk/SpinPhony/pull/12). The production build and 26 automated tests passed. Targeted Chrome checks used a synthetic WAV and verified Auto-to-editor generation, exact cue seeking, bookmarks, Custom drill reuse and a shared Preview/download. The 125-feed case uses a synthetic 3:47 fixture. It does not establish delivery count or intensity on the original song or on hardware. Annotated-song quality, controller playback and GitHub Pages deployment remain pending.
+
+## Historical checks
+
+- The shared Preview and source picker passed the build and all 26 tests. Chrome verified the taller window, unique INLINE choices, reuse across timestamps, cue spacing, named markers, playback highlights and an exact preview/download match.
+
+- The streamlined Preview passed the build and all 25 tests. Chrome at 390 px verified the taller read-only file, playback cue seeking, automatic block placement, cancellation preserving the existing draft, and MSYNC validation after replacement.
+
+- The FLAG follow-up passed the production build and all 25 tests. Chrome at 390 px verified removal of the separate detection map, adding yellow flag bookmarks at a detected marker and between markers, seeking from the cue map, and unchanged MSYNC text and validation.
+
+- The Music Map passed the build and 24 tests. Chrome at 390 px verified sticky map order, optional beats, combined labels, seeking to the matching row, and no automatic block placement. Real-song phrase and repeat accuracy remain unverified.
+
+- The Music setup and CLEAR follow-up passed the build and all 22 tests. Chrome verified generation from Music, removal of duplicate Preview controls, editor-only clearing, preservation of SESSION, and saving a Custom drill from a CDRILL.
+
+- The shared cue map and Auto transfer passed the production build and all 22 tests. Chrome verified sticky positioning at 390 px, exact cue seeking, preservation of handedness and one-cycle settings, independent edits, replacement confirmation and manual validation after transfer.
+
+- The two live text windows passed the build and 21 tests. Chrome verified Auto playback and Stop, manual drill rename, same-time FLAVOR versus INLINE selection, STOP cue-only highlighting, and unchanged preview/download equality.
+
+- The skill-aware Auto follow-up passed the production build and 20 tests. Chrome at 390 px verified the library summaries, Amateur generation, Height/Drop/Reps editing, valid MSYNC export, local persistence across reload, and reuse of an adjusted drill in a fresh generation. Physical placement was not tested.
+
+- The long-section fallback passed the production build and 19 tests. Its synthetic Footloose-length regression reproduces the one-section input and verifies 125 Forehand Drive cues, multiple practice blocks, and final recovery. The original recording and robot delivery were not tested.
+
+- The form-aware Auto slice passed the production build and 18 automated tests, including detected opening accents, repeated middle passages, quiet and short spans, fixed feed across different song tempos, and frozen-format validation. Chrome at 390 px also verified section generation and validated export from a synthetic WAV with the manual editor remaining independent. Real-track accuracy and physical feed timing remain pending.
+
 - The VALIDATE and ball-controls follow-up passed the production build and all 17 automated tests. Chrome at 390 px verified default inherited naming, the compact ball action row, missing-STOP feedback, successful validation and an exact live-preview download.
 
 - The sticky transport and SESSION follow-up passed the production build and all 16 automated tests. Chrome at 390 px verified the library default, fixed-height lists, cue-map scrolling, one-row SESSION fields, invalid-value download blocking and a validator-accepted download matching the live preview.

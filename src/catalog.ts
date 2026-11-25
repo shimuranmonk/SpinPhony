@@ -1,3 +1,5 @@
+import type { Ball } from "./manualScore.js";
+
 const manual = "https://device.report/m/5844640969b9ba563c817978f1836deee83beee7bd85481c94e34c2dbfffc368.pdf";
 const hodges = "https://www.tabletenniscoaching.com/node/18";
 const footwork = "https://www.tabletenniscoaching.com/blog?page=57";
@@ -16,18 +18,19 @@ const feeds = {
   Fu: { drop: 4, spin: "back", depth: "long" },
 } as const;
 
-type Feed = typeof feeds[keyof typeof feeds];
+type Feed = { drop: number; spin: "top" | "back"; depth: "short" | "long" };
 type FeedCode = keyof typeof feeds;
 type ManualRow = [id: string, name: string, page: number, sequence: FeedCode[], random?: boolean];
 
 export type Drill = {
   id: string;
   name: string;
-  category: "Nova S Pro manual" | "Coaching drill";
+  category: "Nova S Pro manual" | "Coaching drill" | "Nova Drills" | "Custom";
   description: string;
   source: string;
   balls: Feed[];
   random: boolean;
+  parameters?: Ball[];
 };
 
 const manualRows: ManualRow[] = [
