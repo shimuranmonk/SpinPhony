@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The compact label follow-up passed the production build. Chrome verified `SPEED-mx10`, a dynamic `SPIN-mx8` label at Speed 3, and clamping Speed 11 to 10 on commit.
+
 - The Speed/Spin editing follow-up passed the production build and all 27 tests, including all 21 table entries. Chrome at 390 px verified clamping a typed spin of 12 to 10 at speed 4, reducing Spin when Speed is lowered, preserving a legal half step, and validating the resulting file.
 
 ## Release checkpoint (2026-11-26)
