@@ -33,7 +33,8 @@ function scheduleLongSection(
   assignments: Map<number, string>, start: number, end: number, drill: Drill, cycleMs: number,
   opening: boolean, closing: boolean,
 ) {
-  // These are provisional planning budgets. Whole, finite cycles use the same text compiler as other sections.
+  // These budgets are provisional. Round up before adding cues so the millisecond grid
+  // never squeezes a planned cycle into a slot shorter than its feed time.
   const slotMs = Math.ceil(cycleMs) + 1;
   const closingCycles = closing ? Math.min(3, Math.floor(workBlockMs / slotMs)) : 0;
   const closingStart = end - (closing ? closingCycles * slotMs + finalRecoveryMs : 0);
@@ -43,6 +44,7 @@ function scheduleLongSection(
   function work(count: number, label: string) {
     assignments.set(cursor, drill.name + " x" + count + " | Auto · " + label);
     cursor += count * slotMs;
+    // An empty section ends the repeat window. Finite ONCE cues leave this gap without a robot command.
     assignments.set(cursor, "- | Auto · Recovery, no feeds scheduled");
     cursor += recoveryMs;
   }
@@ -83,15 +85,17 @@ export function suggestTimeline(track: Track, drills: Drill[], bpm: number): str
     const repeated = !bookend && acoustic
       ? patterns.find(pattern => similar(pattern.profile, acoustic, peakLevel, peakBrightness)) : undefined;
     const fits = ranked.filter(drill => cycleDuration(drill, bpm) + 2002 <= span);
-    const alternate = fits.find(drill => movement(drill) === movement(fits[0])
-      && drill.random === fits[0].random && drill.balls.length === fits[0].balls.length
-      && drill.balls.some((ball, i) => ball.drop !== fits[0].balls[i].drop || ball.spin !== fits[0].balls[i].spin));
-    const drill = repeated && fits.includes(repeated.drill) ? repeated.drill
-      : !bookend && acoustic && acoustic.level > peakLevel * .75 ? alternate ?? fits[0] : fits[0];
-    if (!drill) {
+    const baseline = fits[0];
+    if (!baseline) {
       assignments.set(section.timeMs, "- | " + label + " · No complete cycle and gap fit");
       return;
     }
+    // A louder passage can change the pattern within the same movement, order and cycle-size checks.
+    const alternate = fits.find(drill => movement(drill) === movement(baseline)
+      && drill.random === baseline.random && drill.balls.length === baseline.balls.length
+      && drill.balls.some((ball, i) => ball.drop !== baseline.balls[i].drop || ball.spin !== baseline.balls[i].spin));
+    const drill = repeated && fits.includes(repeated.drill) ? repeated.drill
+      : !bookend && acoustic && acoustic.level > peakLevel * .75 ? alternate ?? baseline : baseline;
     if (!bookend && acoustic && !repeated) patterns.push({ profile: acoustic, drill });
     const cycleMs = cycleDuration(drill, bpm);
     if (span >= longSectionMs && Math.ceil(cycleMs) + 1 <= workBlockMs) {
@@ -116,6 +120,7 @@ export function suggestTimeline(track: Track, drills: Drill[], bpm: number): str
 }
 
 export function readTimeline(text: string, durationMs: number, drills: Drill[], bpm: number) {
+  // Auto still uses this compact text format internally. The block editor has its own compiler.
   const byName = new Map(drills.map(drill => [drill.name.toLowerCase(), drill]));
   const lines: TimelineLine[] = [];
   for (const [line, raw] of text.split(/\r?\n/).entries()) {
@@ -150,6 +155,7 @@ export function readTimeline(text: string, durationMs: number, drills: Drill[], 
 
   const sections = lines.filter(line => line.kind === "SECTION");
   const cues: Cue[] = [];
+  // Section assignments own their whole span, including hits that land exactly at the start.
   const covered: { start: number; end: number }[] = [];
   sections.forEach((section, index) => {
     if (!section.drill) return;

@@ -1,6 +1,7 @@
 type CueLine = { timeMs: number; command: string; reference: string; line: number };
 
 export function indexMsync(source: string) {
+  // This index locates lines in the generated text. The frozen validator checks the actual format.
   const definitions = new Map<string, number>();
   const cues: CueLine[] = [];
   source.split(/\r?\n/).forEach((line, index) => {
@@ -22,7 +23,13 @@ export function msyncHighlight(index: ReturnType<typeof indexMsync>, timeMs?: nu
   if (timeMs === undefined) return {};
   const cue = command
     ? index.cues.find(item => item.timeMs === timeMs && item.command === command)
-    : index.cues.filter(item => item.timeMs <= timeMs).at(-1);
+    : lastCueAt(index.cues, timeMs);
   const definition = cue?.reference ? index.definitions.get(cue.command + ":" + cue.reference) : undefined;
   return { cue: cue?.line, definition };
+}
+
+function lastCueAt(cues: CueLine[], timeMs: number) {
+  // Playback calls this often. A reverse scan avoids allocating another array on each tick.
+  for (let i = cues.length - 1; i >= 0; i--) if (cues[i].timeMs <= timeMs) return cues[i];
+  return undefined;
 }

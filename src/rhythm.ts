@@ -66,6 +66,7 @@ export function estimateRhythm(channels: Float32Array[], sampleRate: number): Rh
 }
 
 function estimatePeriodicRhythm(novelty: Float64Array, secondsPerHop: number): Rhythm | null {
+  // Offbeat accents can throw off adjacent gap counts. Look for repetition across the whole track.
   const signal = novelty.map((value, i) =>
     value + 0.5 * ((novelty[i - 1] ?? 0) + (novelty[i + 1] ?? 0)));
   const mean = signal.reduce((sum, value) => sum + value, 0) / signal.length;
@@ -91,6 +92,7 @@ function estimatePeriodicRhythm(novelty: Float64Array, secondsPerHop: number): R
   }
   if (!bestLag) return null;
   for (const divisor of [3, 2]) {
+    // A recurring bar can outscore the beat. Prefer a shorter period only when the evidence supports it.
     const shorter = Math.round(bestLag / divisor);
     if (shorter >= minLag && correlation[shorter] >= Math.max(0.2, correlation[bestLag] * 0.5)) {
       bestLag = shorter;

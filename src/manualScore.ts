@@ -103,6 +103,7 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
     }
     return key + "=" + Number(value);
   });
+  // Flags are bookmarks. Keep them out of timing checks as well as out of the file.
   const sorted = blocks.filter(block => block.kind !== "FLAG")
     .sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
   let previous: Block | undefined;
@@ -111,9 +112,9 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
   let stopped = false;
   let activated = false;
 
-  function define(entries: Map<string, string>, key: string, value: string) {
-    if (entries.has(key) && entries.get(key) !== value) throw new Error("This alias already has different settings.");
-    entries.set(key, value);
+  function define(key: string, value: string) {
+    if (definitions.has(key) && definitions.get(key) !== value) throw new Error("This alias already has different settings.");
+    definitions.set(key, value);
   }
 
   for (const block of sorted) {
@@ -143,12 +144,13 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
           checkSpin(ball.SPEED, ball.SPIN);
           return "BALL=" + (index + 1) + fields.map(key => ";" + key + "=" + ball[key]).join("");
         });
+        // Compare the serialized settings. Times, notes and ONCE belong to each cue.
         const body = ["NAME=" + title, "RANDOM=" + block.random, ...balls].join("\n");
         let name = inlineNames.get(body);
         if (!name) {
           const suffix = title.toUpperCase().replace(/[^A-Z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 25);
           name = "INL_" + (/^[A-Z]/.test(suffix) ? suffix : "DRILL_" + suffix) + "_" + id;
-          define(definitions, name, ["# Drill: " + title, "[INLINE:" + name + "]", body].join("\n"));
+          define(name, ["# Drill: " + title, "[INLINE:" + name + "]", body].join("\n"));
           inlineNames.set(body, name);
           inlineDrills.push({ alias: name, title, block });
         }
@@ -158,13 +160,14 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
       } else if (kind === "STOP") {
         stopped = true;
       } else {
+        // The v1 validator only treats ONCE as active at its own timestamp.
         if (!active || active.once && active.timeMs !== timeMs) throw new Error("Place this on or after an active drill.");
         if (kind === "FLAVOR") {
           const name = "FLV_" + alias(block.name, "FLV").replace(/\s+/g, "_");
           if (!validAlias.test(name.slice(4)) || name === "FLV_NONE") throw new Error("Enter a flavor alias starting with a letter, up to 36 letters, numbers or underscores. NONE is reserved.");
           for (const key of flavorFields) checkField(key, block.flavor[key]);
           checkSpin(block.flavor.SPEED, block.flavor.SPIN);
-          define(definitions, name, ["[FLAVOR:" + name + "]", ...flavorFields.map(key => "FLV_" + key + "=" + block.flavor[key])].join("\n"));
+          define(name, ["[FLAVOR:" + name + "]", ...flavorFields.map(key => "FLV_" + key + "=" + block.flavor[key])].join("\n"));
           command = "FLAVOR=" + name;
         } else {
           const milliseconds = Math.round(seconds * 1000);
@@ -172,6 +175,7 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
             || Math.abs(seconds * 1000 - milliseconds) > 1e-7 || timeMs + milliseconds > track.durationMs) {
             throw new Error("Enter a positive duration within the remaining track, with up to three decimals.");
           }
+          // IDLE has no duration in the file. This reservation keeps the editor from placing an early restart.
           pausedUntil = timeMs + milliseconds;
           active = undefined;
         }
@@ -182,6 +186,7 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       issues.push(time + " " + label + ". " + message);
+      // Keep the rejected block visible in the draft without emitting an invalid command.
       cues.push("# " + time + " · " + message);
     }
   }
