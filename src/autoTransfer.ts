@@ -7,6 +7,7 @@ export function autoCuesToBlocks(cues: Cue[], profile: Profile, bpm: number): Bl
   const direction = profile.handedness === "left" ? -1 : 1;
   return cues.map((cue, index) => {
     const inline = cue.command === "INLINE";
+    // Copy the export-side placement and give each block its own balls so edits stay local.
     const balls = inline ? drillParameters(cue.drill, bpm).map(ball => ({ ...ball, DROP: ball.DROP * direction })) : [{ ...initialBall }];
     if (balls.length > maxBalls) throw new Error("A generated drill exceeds the editor’s 10-ball limit.");
     return {

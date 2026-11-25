@@ -29,6 +29,7 @@ export const novaPatterns: Drill[] = nativeDrills.map(native => {
 
 export function prepareAutoDrill(drill: Drill, profile: Profile): Drill {
   const limit = skillLimits[profile.skill ?? "Novice"];
+  // Saved drills keep their tuned settings unless a player or robot limit requires a reduction.
   const adjustment = drill.category === "Nova Drills" ? limit.adjustment : 0;
   const parameters = drill.parameters?.map(ball => {
     const SPEED = Math.min(ball.SPEED + adjustment, limit.speed);

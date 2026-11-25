@@ -10,6 +10,7 @@ export function MsyncTextPreview({ source, timeMs, command }: {
   const [scrollTop, setScrollTop] = useState(0);
 
   useLayoutEffect(() => {
+    // Scroll the text box before paint so cue changes do not move the page or flash the old line.
     const editor = windowRef.current;
     if (!editor) return;
     if (cue !== undefined) {

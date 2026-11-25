@@ -45,6 +45,7 @@ function App() {
     if (!file) return;
     try {
       const analyzed = await analyzeFile(file);
+      // Decoding can finish out of order if the user picks another file while we wait.
       if (id !== request.current) return;
       validateTrack(analyzed);
       setTrack(analyzed);
@@ -86,6 +87,7 @@ function App() {
       if (cues.length <= 1) throw new Error("No complete practice cycle fits. Try another drill or use MSYNC Editor.");
       exportTimeline(track, cues, profile, feedBpm);
       const nextBlocks = autoCuesToBlocks(cues, profile, feedBpm);
+      // Build the replacement first. A failed generation or canceled prompt leaves the draft intact.
       const hasSessionEdits = session.COUNTDOWN !== defaultSession.COUNTDOWN
         || session.CYCLE_PAUSE !== defaultSession.CYCLE_PAUSE || session.ROBOT_LEAD !== defaultSession.ROBOT_LEAD;
       if ((blocks.length || hasSessionEdits) && !window.confirm("Replace the current MSYNC Editor draft with this Auto timeline?")) return;
