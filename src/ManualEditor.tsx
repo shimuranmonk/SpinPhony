@@ -5,13 +5,14 @@ import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, dri
 import { validateMsyncSource } from "./msync-v1/validator.js";
 import { CueMap } from "./CueMap.js";
 import { MsyncTextPreview } from "./MsyncTextPreview.js";
-import type { BallField, Block, BlockKind, SessionField, SessionSettings } from "./manualScore.js";
+import type { Ball, BallField, Block, BlockKind, SessionField, SessionSettings } from "./manualScore.js";
 import type { Track } from "./rhythm.js";
 
 type Props = {
   file: File; track: Track;
   blocks: Block[]; onChange: (blocks: Block[]) => void; onDownload: (source: string) => void;
   session: SessionSettings; onSessionChange: (session: SessionSettings) => void;
+  onSaveCustom: (name: string, balls: Ball[], random: boolean) => string;
 };
 
 function showCurrentRow(list: HTMLUListElement | null) {
@@ -23,12 +24,13 @@ function showCurrentRow(list: HTMLUListElement | null) {
   else if (item.bottom > bounds.bottom) list.scrollTop += item.bottom - bounds.bottom;
 }
 
-export function ManualEditor({ file, track, blocks, onChange, onDownload, session, onSessionChange }: Props) {
+export function ManualEditor({ file, track, blocks, onChange, onDownload, session, onSessionChange, onSaveCustom }: Props) {
   const [url, setUrl] = useState("");
   const [kind, setKind] = useState<BlockKind>("CDRILL");
   const [selected, setSelected] = useState<number>();
   const [playhead, setPlayhead] = useState(0);
   const [editNotice, setEditNotice] = useState("");
+  const [saveDraft, setSaveDraft] = useState<{ id: number; name: string; status: string }>();
   const [ballSelection, setBallSelection] = useState<{ blockId: number; index: number }>();
   const [validation, setValidation] = useState<{ key: string; errors: string[]; warnings: string[] }>();
   const audio = useRef<HTMLAudioElement>(null);
@@ -96,6 +98,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
     onChange(blocks.filter(item => item.id !== id));
     if (selected === id) setSelected(undefined);
     if (ballSelection?.blockId === id) setBallSelection(undefined);
+    if (saveDraft?.id === id) setSaveDraft(undefined);
     setEditNotice("");
   }
 
@@ -107,6 +110,15 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
       <button type="button" className="remove-chip" aria-label={"Remove " + label}
         onClick={() => remove(item.id)}>×</button>
     </span>;
+  }
+
+  function clear() {
+    onChange([]);
+    setSelected(undefined);
+    setBallSelection(undefined);
+    setValidation(undefined);
+    setEditNotice("");
+    setSaveDraft(undefined);
   }
 
   function seek(timeMs: number) {
@@ -132,7 +144,10 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
         seek(item.timeMs); setSelected(item.id); setCueJump(value => value + 1);
       }} />
       <div className="manual-actions">
-        <button type="button" onClick={() => add(kind, playhead)}>Add {kind} at {timestamp(playhead)}</button>
+        <div className="manual-add-clear">
+          <button type="button" onClick={() => add(kind, playhead)}>Add {kind} at {timestamp(playhead)}</button>
+          <button type="button" disabled={!blocks.length} onClick={clear}>CLEAR</button>
+        </div>
         <div className="block-tray" aria-label="Available blocks">
           {blockKinds.map(type => <button type="button" key={type} data-block={type} draggable aria-pressed={kind === type}
             onDragStart={event => event.dataTransfer.setData("application/x-spinphony-block", type)}
@@ -247,6 +262,18 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
             onClick={() => update({ balls: [...block.balls, { ...initialBall }] })}>Add Ball</button>
           <button type="button" onClick={() => remove(block.id)}>Remove block</button>
         </div>
+        <details>
+          <summary>Save as Custom</summary>
+          <div className="manual-ball-actions">
+            <label>Custom drill name<input value={saveDraft?.id === block.id ? saveDraft.name : ""}
+              onChange={event => setSaveDraft({ id: block.id, name: event.target.value, status: "" })} /></label>
+            <button type="button" onClick={() => {
+              const name = saveDraft?.id === block.id ? saveDraft.name : "";
+              setSaveDraft({ id: block.id, name, status: onSaveCustom(name, block.balls, block.random) });
+            }}>Save as Custom</button>
+          </div>
+          {saveDraft?.id === block.id && saveDraft.status && <p role="status">{saveDraft.status}</p>}
+        </details>
       </>}
       {block.kind !== "CDRILL" && <button type="button" onClick={() => remove(block.id)}>Remove block</button>}
     </fieldset>}

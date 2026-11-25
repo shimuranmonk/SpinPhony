@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
 import { CueMap } from "./CueMap.js";
 import type { Cue } from "./generator.js";
 import type { Drill } from "./catalog.js";
@@ -13,7 +12,6 @@ type Props = {
   source: string;
   cues: Cue[];
   durationMs: number;
-  children?: ReactNode;
   onTransfer: () => void;
   lines: { timeMs: number; line: number }[];
   events: MusicEvent[];
@@ -37,7 +35,7 @@ function activeIndexAt(markers: { timeMs: number }[], seconds: number) {
 }
 
 export function TimelinePreview(props: Props) {
-  const { file, text, source, cues, durationMs, children, onTransfer, lines, events, drills, feedBpm, validationError, canDownload, onDownload, onEdit } = props;
+  const { file, text, source, cues, durationMs, onTransfer, lines, events, drills, feedBpm, validationError, canDownload, onDownload, onEdit } = props;
   const rates = drills.flatMap(drill => drill.parameters?.map(ball => ball.BPM) ?? [feedBpm]).filter(Number.isFinite);
   const minRate = Math.min(...rates);
   const maxRate = Math.max(...rates);
@@ -154,7 +152,6 @@ export function TimelinePreview(props: Props) {
         </div>
       </div>
       <MsyncTextPreview source={source} timeMs={position === undefined ? undefined : Math.round(position * 1000)} />
-      {children}
     </section>
   );
 }

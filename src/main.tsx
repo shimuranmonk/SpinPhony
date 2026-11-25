@@ -1,9 +1,8 @@
 import { useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import type { Drill } from "./catalog.js";
-import { novaPatterns, pattern, prepareAutoDrill, readCustomDrills, saveCustomDrill, skillLimits, validateAutoBalls } from "./autoDrills.js";
+import { novaPatterns, prepareAutoDrill, readCustomDrills, saveCustomDrill, skillLimits, validateAutoBalls } from "./autoDrills.js";
 import type { Skill } from "./autoDrills.js";
-import { AutoBallEditor } from "./AutoBallEditor.js";
 import { exportTimeline, feedRate, tagline, timestamp } from "./generator.js";
 import type { Profile } from "./generator.js";
 import { readTimeline, suggestTimeline } from "./score.js";
@@ -18,7 +17,7 @@ import type { Track } from "./rhythm.js";
 import "./style.css";
 
 function App() {
-  const tabs = ["music", "manual", "setup", "preview"] as const;
+  const tabs = ["music", "manual", "preview"] as const;
   const [tab, setTab] = useState<typeof tabs[number]>("music");
   const [blocks, setBlocks] = useState<Block[]>([]);
   const [session, setSession] = useState(defaultSession);
@@ -28,7 +27,6 @@ function App() {
   const [error, setError] = useState("");
   const [selected, setSelected] = useState<Drill[]>(() => novaPatterns.filter(drill => drill.name === "Forehand Drive"));
   const [custom, setCustom] = useState(readCustomDrills);
-  const [ballEdits, setBallEdits] = useState<Record<string, Ball[]>>({});
   const [drillQuery, setDrillQuery] = useState("");
   const [libraryTab, setLibraryTab] = useState<"Nova Drills" | "Custom">("Nova Drills");
   const [profile, setProfile] = useState<Profile>({
@@ -42,7 +40,6 @@ function App() {
     setFile(file);
     setTrack(undefined);
     setScore(undefined);
-    setBallEdits({});
     setBlocks([]);
     setError("");
 
@@ -62,7 +59,6 @@ function App() {
 
   function configure<K extends keyof Profile>(key: K, value: Profile[K]) {
     setScore(undefined);
-    setBallEdits({});
     setProfile(previous => ({ ...previous, [key]: value }));
   }
 
@@ -81,11 +77,7 @@ function App() {
   let timeline: ReturnType<typeof readTimeline> | undefined;
   const feedBpm = feedRate(profile);
   const skill = profile.skill ?? "Novice";
-  const prepared = selected.map(drill => {
-    const plan = prepareAutoDrill(drill, profile);
-    const settings = ballEdits[drill.id];
-    return settings ? { ...plan, parameters: settings, balls: pattern(settings) } : plan;
-  });
+  const prepared = selected.map(drill => prepareAutoDrill(drill, profile));
   const query = drillQuery.trim().toLowerCase();
   const library = libraryTab === "Nova Drills" ? novaPatterns : custom;
   const visibleDrills = library.filter(drill => (drill.name + " " + drill.description).toLowerCase().includes(query));
@@ -112,11 +104,9 @@ function App() {
     document.getElementById("manual-tab")?.focus();
   }
 
-  function saveDrill(drill: Drill, name: string) {
+  function saveDrill(name: string, balls: Ball[], random: boolean) {
     try {
-      if (!drill.parameters) return "This drill has no editable ball settings.";
-      validateAutoBalls(drill.parameters, skill);
-      setCustom(saveCustomDrill(custom, name, drill.parameters, drill.random));
+      setCustom(saveCustomDrill(custom, name, balls, random));
       return "Saved to Training Library → Custom.";
     } catch (failure) {
       return failure instanceof Error ? failure.message : String(failure);
@@ -141,7 +131,7 @@ function App() {
         {tabs.map(item => (
           <button key={item} id={item + "-tab"} role="tab" type="button" aria-selected={tab === item}
             aria-controls={item + "-panel"} tabIndex={tab === item ? 0 : -1} onClick={() => setTab(item)}>
-            {item === "setup" ? "Auto (under development)" : item === "preview" ? "Preview" : item === "manual" ? "MSYNC Editor" : "Music"}
+            {item === "preview" ? "Preview" : item === "manual" ? "MSYNC Editor" : "Music"}
           </button>
         ))}
       </div>
@@ -158,6 +148,32 @@ function App() {
               {track.rhythm ? " · About " + track.rhythm.bpm + " BPM" : ""}</p>}
           </div>
         </section>
+        <form onSubmit={event => {
+          event.preventDefault();
+          if (!track) return;
+          setError("");
+          try {
+            for (const drill of prepared) if (drill.parameters) validateAutoBalls(drill.parameters, skill);
+            setScore(suggestTimeline(track, prepared, feedBpm));
+            setTab("preview");
+            document.getElementById("preview-tab")?.focus();
+          } catch (failure) {
+            setError(failure instanceof Error ? failure.message : String(failure));
+          }
+        }}>
+          <section>
+            <h2>Auto (under development)</h2>
+            <h3>Training Profile</h3>
+            <div className="fields">
+              <label>Player skill<select value={skill} onChange={event => configure("skill", event.target.value as Skill)}>
+                {Object.keys(skillLimits).map(level => <option key={level}>{level}</option>)}
+              </select></label>
+              <label>Pace<select value={profile.pace} onChange={event => configure("pace", event.target.value as Profile["pace"])}><option value="steady">Steady</option><option value="active">Active</option></select></label>
+              <label>Racket hand<select value={profile.handedness} onChange={event => configure("handedness", event.target.value as Profile["handedness"])}><option value="right">Right</option><option value="left">Left</option></select></label>
+            </div>
+            <button className="generate-button" disabled={!track || busy} type="submit">Generate Timeline</button>
+          </section>
+        </form>
         <section>
           <h2>Training library</h2>
           <div className="tabs" role="group" aria-label="Training library categories">
@@ -188,49 +204,19 @@ function App() {
         </section>
         {error && tab === "music" && <p role="alert">{error}</p>}
       </div>
-      <form id="setup-panel" role="tabpanel" aria-labelledby="setup-tab" hidden={tab !== "setup"} onSubmit={event => {
-        event.preventDefault();
-        if (!track) return;
-        setError("");
-        try {
-          for (const drill of prepared) if (drill.parameters) validateAutoBalls(drill.parameters, skill);
-          setScore(suggestTimeline(track, prepared, feedBpm));
-          setTab("preview");
-          document.getElementById("preview-tab")?.focus();
-        } catch (failure) {
-          setError(failure instanceof Error ? failure.message : String(failure));
-        }
-      }}>
-        <section>
-          <h2>Training profile</h2>
-          <div className="fields">
-            <label>Player skill<select value={skill} onChange={event => configure("skill", event.target.value as Skill)}>
-              {Object.keys(skillLimits).map(level => <option key={level}>{level}</option>)}
-            </select></label>
-            <label>Pace<select value={profile.pace} onChange={event => configure("pace", event.target.value as Profile["pace"])}><option value="steady">Steady</option><option value="active">Active</option></select></label>
-            <label>Racket hand<select value={profile.handedness} onChange={event => configure("handedness", event.target.value as Profile["handedness"])}><option value="right">Right</option><option value="left">Left</option></select></label>
-          </div>
-        </section>
-        {error && <p role="alert">{error}</p>}
-        {!track && <p>Choose an audio file in the Music tab to generate a timeline.</p>}
-        <button disabled={!track || busy} type="submit">Generate timeline</button>
-      </form>
       <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
         {tab === "preview" && (score !== undefined && file && track ? (
           <TimelinePreview file={file} text={score} source={source} cues={timeline?.cues ?? []}
             durationMs={track.durationMs} lines={timeline?.lines ?? []}
             events={describeMusicEvents(track, timeline)} drills={prepared} feedBpm={feedBpm}
             validationError={timelineError} canDownload={Boolean(source)} onDownload={() => download(source)}
-            onEdit={setScore} onTransfer={transferToEditor}>
-          <AutoBallEditor drills={prepared} skill={skill} left={profile.handedness === "left"}
-            onEdit={(id, balls) => setBallEdits(previous => ({ ...previous, [id]: balls }))} onSave={saveDrill} />
-          </TimelinePreview>
-        ) : <section><p>Generate a timeline in Auto to preview it here.</p></section>)}
+            onEdit={setScore} onTransfer={transferToEditor} />
+        ) : <section><p>Generate a timeline from the Auto panel in Music to preview it here.</p></section>)}
       </div>
       {tab === "manual" && <div id="manual-panel" role="tabpanel" aria-labelledby="manual-tab">
         {file && track
           ? <ManualEditor file={file} track={track}
-              blocks={blocks} onChange={setBlocks} onDownload={download} session={session} onSessionChange={setSession} />
+              blocks={blocks} onChange={setBlocks} onDownload={download} session={session} onSessionChange={setSession} onSaveCustom={saveDrill} />
           : <section><p>{busy ? "Analyzing audio…" : "Choose an audio file in the Music tab to start editing."}</p></section>}
       </div>}
     </main>

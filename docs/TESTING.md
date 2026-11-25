@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The Music setup and CLEAR follow-up passed the build and all 22 tests. Chrome verified generation from Music, removal of duplicate Preview controls, editor-only clearing, preservation of SESSION, and saving a Custom drill from a CDRILL.
+
 - The shared cue map and Auto transfer passed the production build and all 22 tests. Chrome verified sticky positioning at 390 px, exact cue seeking, preservation of handedness and one-cycle settings, independent edits, replacement confirmation and manual validation after transfer.
 
 - The two live text windows passed the build and 21 tests. Chrome verified Auto playback and Stop, manual drill rename, same-time FLAVOR versus INLINE selection, STOP cue-only highlighting, and unchanged preview/download equality.
