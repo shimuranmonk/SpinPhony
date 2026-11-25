@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { drills as library, starterDrills as drills } from "../.test-build/catalog.js";
-import { exportTimeline, feedRate, validateTrack } from "../.test-build/generator.js";
+import { cycleDuration, exportTimeline, feedRate, validateTrack } from "../.test-build/generator.js";
 import { estimateRhythm } from "../.test-build/rhythm.js";
 import { detectMusicMarkers } from "../.test-build/music.js";
-import { readTimeline, suggestTimeline } from "../.test-build/score.js";
+import { scheduleAuto } from "../.test-build/autoSchedule.js";
 import { novaPatterns, prepareAutoDrill, validateAutoBalls } from "../.test-build/autoDrills.js";
 import { indexMsync, msyncHighlight } from "../.test-build/msyncHighlight.js";
 import { autoCuesToBlocks } from "../.test-build/autoTransfer.js";
@@ -57,11 +57,11 @@ test("copying Auto cues preserves cue times and actual ball values in independen
   const blocks = autoCuesToBlocks(cues, left, feedBpm);
   assert.deepEqual(blocks.map(block => block.timeMs), cues.map(cue => cue.timeMs));
   assert.equal(blocks.at(-1).kind, "STOP");
-  assert.ok(blocks.slice(0, -1).every(block => block.kind === "CDRILL" && block.once));
+  assert.ok(blocks.filter(block => block.kind === "CDRILL").every(block => !block.once));
   assert.equal(blocks[0].balls[0].DROP, -5);
   assert.equal(blocks[0].balls[0].REPS, 2);
   blocks[0].balls[0].DROP = -4;
-  assert.equal(blocks[1].balls[0].DROP, -5);
+  assert.equal(blocks.filter(block => block.kind === "CDRILL")[1].balls[0].DROP, -5);
   assert.equal(original.parameters[0].DROP, 5);
   assert.deepEqual(compileManualScore(track, blocks).issues, []);
 });
@@ -225,8 +225,7 @@ test("repeated rhythmic accents survive extra offbeat transients", () => {
 
 function compile(selected, configured = profile, audio = track) {
   const feedBpm = feedRate(configured);
-  const text = suggestTimeline(audio, selected, feedBpm);
-  return { ...readTimeline(text, audio.durationMs, selected, feedBpm), feedBpm, text };
+  return { ...scheduleAuto(audio, selected, feedBpm), feedBpm };
 }
 
 test("detector finds irregular opening accents and a sustained section change", () => {
@@ -247,77 +246,74 @@ test("detector finds irregular opening accents and a sustained section change", 
   ]);
 });
 
-test("Auto preserves musical markers and schedules finite cycles instead of firing each hit", () => {
-  const one = compile([drills[0]]);
-  const two = compile([drills[1], drills[2]]);
-  assert.deepEqual(one.lines.map(line => line.timeMs), [0, 250, 1320, 24000]);
-  assert.deepEqual(two.lines.map(line => line.timeMs), one.lines.map(line => line.timeMs));
-  const source = exportTimeline(track, two.cues, profile, two.feedBpm);
-  assert.ok(source.includes("SHA256=" + track.sha256));
-  assert.match(source, /^00:00\.000 INLINE=INL_ALTERNATE;ONCE/m);
-  assert.doesNotMatch(source, /^00:(00\.250|01\.320) INLINE=/m);
-  assert.ok(two.lines.filter(line => line.kind === "HIT").every(line => !line.drill));
-  assert.match(source, /00:24\.000 STOP\n$/);
-});
-
-test("Auto reuses recognizable passages, preserves quiet gaps, and keeps feed independent of song tempo", () => {
-  const acoustic = (level, brightness, hitsPerSecond) => ({ level, brightness, hitsPerSecond });
-  const form = { ...track, durationMs: 57000, markers: [
-    { kind: "section", timeMs: 0, profile: acoustic(.035, .03, 1) },
-    { kind: "section", timeMs: 10000, profile: acoustic(.2, .1, 2) },
-    { kind: "section", timeMs: 23000, profile: acoustic(.008, .006, .1) },
-    { kind: "hit", timeMs: 24000, strength: .2 },
-    { kind: "section", timeMs: 30000, profile: acoustic(.195, .095, 2.1) },
-    { kind: "section", timeMs: 45000, profile: acoustic(.065, .04, 1.2) },
-    { kind: "section", timeMs: 56000, profile: acoustic(.055, .04, 1) },
-  ] };
-  const slow = compile(drills, profile, { ...form, rhythm: { bpm: 70 } });
-  const fast = compile(drills, profile, { ...form, rhythm: { bpm: 170 } });
-  assert.equal(slow.feedBpm, fast.feedBpm);
-  assert.equal(slow.text, fast.text);
-  const sections = slow.lines.filter(line => line.kind === "SECTION");
-  assert.equal(sections[1].drill, sections[3].drill);
-  assert.match(sections[3].note, /Similar passage/);
-  assert.match(sections[2].note, /no feeds scheduled/);
-  assert.match(sections.at(-1).note, /No complete cycle/);
-  assert.ok(slow.cues.every(cue => cue.timeMs < 23000 || cue.timeMs >= 30000));
-  for (const [i, cue] of slow.cues.slice(0, -1).entries()) {
-    const next = slow.cues[i + 1];
-    assert.ok(next.timeMs - cue.timeMs >= cue.drill.balls.length * 60000 / slow.feedBpm + 1999);
+test("Auto gives each selected drill a block before repeating the coaching progression", () => {
+  const audio = { ...track, durationMs: 235000 };
+  const selected = [...drills].reverse();
+  const { cues, unused, feedBpm } = compile(selected, profile, audio);
+  const work = cues.filter(cue => cue.command === "INLINE");
+  assert.deepEqual(unused, []);
+  assert.deepEqual(work.slice(0, drills.length).map(cue => cue.drill), drills);
+  assert.ok(work.length > drills.length);
+  const rest = cues.flatMap((cue, index) => cue.command === "IDLE" ? [cues[index + 1].timeMs - cue.timeMs] : []);
+  assert.equal(rest.filter(ms => ms === 8000).length, 2);
+  assert.ok(rest.every(ms => ms === 8000 || ms >= 3000 && ms <= 4000));
+  for (let index = 0; index < cues.length - 1; index += 2) {
+    assert.ok(cues[index + 1].timeMs - cues[index].timeMs >= cycleDuration(cues[index].drill, feedBpm));
   }
+  const draft = compileManualScore(audio, autoCuesToBlocks(cues, profile, feedBpm));
+  assert.deepEqual(draft.issues, []);
+  assert.match(draft.source, / IDLE\n/);
 });
 
-test("a 3:47 single-section track schedules full work blocks with recovery instead of three isolated balls", () => {
-  const footlooseLength = { ...track, durationMs: 227207, markers: [
-    { kind: "section", timeMs: 0, profile: { level: .14, brightness: .08, hitsPerSecond: 2 } },
-    { kind: "hit", timeMs: 1200, strength: .8 },
+test("Auto favors an irregular section entrance paired with a recovery accent", () => {
+  const audio = { ...track, durationMs: 60000, markers: [
+    { timeMs: 0, kind: "section" }, { timeMs: 800, kind: "hit", strength: .95 },
+    { timeMs: 10730, kind: "hit", strength: .95 }, { timeMs: 18730, kind: "section" },
   ] };
-  const { cues, lines, feedBpm } = compile([drills[0]], { ...profile, pace: "active" }, footlooseLength);
-  const deliveries = cues.filter(cue => cue.command === "INLINE");
-  assert.equal(deliveries.length, 125);
-  assert.ok(deliveries.every(cue => cue.once && cue.drill === drills[0]));
-  assert.ok(lines.filter(line => line.note.includes("Practice block")).length > 1);
-  assert.match(lines.at(-2).note, /Final recovery/);
-  assert.equal(lines.at(-2).timeMs, 222207);
-  assert.ok(deliveries.every((cue, i) => i === 0 || cue.timeMs - deliveries[i - 1].timeMs <= 12000));
-  assert.match(exportTimeline(footlooseLength, cues, profile, feedBpm), /03:47\.207 STOP\n$/);
+  const slow = compile(drills, profile, { ...audio, rhythm: { bpm: 70 } });
+  const fast = compile(drills, profile, { ...audio, rhythm: { bpm: 170 } });
+  assert.equal(slow.feedBpm, fast.feedBpm);
+  assert.deepEqual(slow.cues, fast.cues);
+  assert.equal(slow.cues[0].timeMs, 800);
+  assert.equal(slow.cues[1].timeMs, 10730);
+  assert.equal(slow.cues[2].timeMs, 18730);
 });
 
-test("a section assignment distributes exactly five cycles and preserves hit lines", () => {
-  const start = compile(drills);
-  const edited = start.text.replace(/SECTION \| [^\n]+/, "SECTION | Forehand drive x5 | Chorus");
-  const result = readTimeline(edited, track.durationMs, drills, 60);
-  assert.equal(result.lines.filter(line => line.kind === "HIT").length, 2);
-  assert.deepEqual(result.cues.map(cue => cue.timeMs), [0, 4800, 9600, 14400, 19200, 24000]);
-  assert.ok(result.cues.slice(0, -1).every(cue => cue.once && cue.drill === drills[0]));
-  assert.match(exportTimeline(track, result.cues, profile, 60), /Chorus · Repeat 5 of 5/);
+test("Auto names drills that cannot fit and preserves short recovery on short tracks", () => {
+  const audio = { ...track, durationMs: 8000, markers: [] };
+  const { cues, unused, longCount } = compile(drills, profile, audio);
+  assert.deepEqual(unused, drills.slice(1));
+  assert.equal(longCount, 0);
+  assert.deepEqual(cues.map(cue => cue.command), ["INLINE", "IDLE", "STOP"]);
+  assert.ok(audio.durationMs - cues[1].timeMs >= 3000 && audio.durationMs - cues[1].timeMs <= 4000);
+  assert.throws(() => compile([{
+    ...drills[0], parameters: [{ ...initialBall, REPS: 10, BPM: 30 }],
+  }], profile, audio), /No complete practice cycle and recovery fit/);
 });
 
-test("text validation reports line numbers for unknown drills and repeats that do not fit", () => {
-  const start = compile(drills);
-  assert.throws(() => readTimeline(start.text.replace("Forehand drive", "Unknown drill"), 24000, drills, 60), /Line 1/);
-  assert.throws(() => readTimeline(start.text.replace(/SECTION \| [^|]+/, "SECTION | Falkenberg x50 "), 24000, drills, 60), /Line 1/);
-  assert.throws(() => readTimeline(start.text.replace("00:24.000", "00:23.000"), 24000, drills, 60), /Line 4/);
+test("Auto keeps work and recovery feasible across track lengths and marker densities", () => {
+  for (const durationMs of [8000, 13027, 17000, 24000, 44621, 75000, 180001, 360000]) {
+    const markers = Array.from({ length: Math.floor(durationMs / 473) }, (_, i) => ({
+      timeMs: (i + 1) * 473, kind: i % 13 === 0 ? "section" : "hit", strength: (i % 6) / 5,
+    }));
+    const audio = { ...track, durationMs, markers };
+    for (const pool of [[drills[0]], drills, library]) {
+      const { cues, feedBpm, longCount, unused } = compile(pool, profile, audio);
+      let longRests = 0;
+      for (let i = 0; i < cues.length - 1; i += 2) {
+        const [work, rest, next] = cues.slice(i, i + 3);
+        const pause = next.timeMs - rest.timeMs;
+        assert.ok(rest.timeMs - work.timeMs >= cycleDuration(work.drill, feedBpm));
+        assert.ok(pause === 8000 || pause >= 3000 && pause <= 4000);
+        longRests += Number(pause === 8000);
+      }
+      assert.equal(longRests, longCount);
+      assert.equal(cues.at(-1).timeMs, durationMs);
+      const drillsUsed = new Set(cues.filter(cue => cue.command === "INLINE").map(cue => cue.drill));
+      assert.equal(drillsUsed.size + unused.length, pool.length);
+      assert.deepEqual(compileManualScore(audio, autoCuesToBlocks(cues, profile, feedBpm)).issues, []);
+    }
+  }
 });
 
 test("export reflects handedness and checks audio identity", () => {
@@ -381,7 +377,7 @@ test("drill descriptions and cue notes stay on separate MSYNC comment lines", ()
   cues[0].note = "Forehand multiball\n00:02.000 STOP";
   const source = exportTimeline(track, cues, profile, feedBpm);
   assert.match(source, /# Drill: Forehand drive[^\n]*\n\[INLINE:INL_FOREHAND\]/);
-  assert.match(source, /# Forehand drive — Forehand multiball 00:02\.000 STOP\n00:00\.000 INLINE=INL_FOREHAND;ONCE/);
-  assert.match(source, /# End of track\n00:24\.000 STOP/);
+  assert.match(source, /# Forehand drive — Forehand multiball 00:02\.000 STOP\n00:00\.000 INLINE=INL_FOREHAND/);
+  assert.match(source, /# End of track[^\n]*\n00:24\.000 STOP/);
   assert.doesNotMatch(source, /^00:02\.000 STOP$/m);
 });

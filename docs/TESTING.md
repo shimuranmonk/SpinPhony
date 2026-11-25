@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The Auto placement update passed the production build and all 26 tests with the frozen MSYNC v1 reference validator. Tests cover selected drill coverage before repeats, a paired accent and section entrance, exact eight-second and bounded short pauses, short-track notices, and synthetic tracks from eight seconds to six minutes. Song annotation, controller playback and hardware timing remain pending.
+
 - The compact label follow-up passed the production build. Chrome verified `SPEED-mx10`, a dynamic `SPIN-mx8` label at Speed 3, and clamping Speed 11 to 10 on commit.
 
 - The Speed/Spin editing follow-up passed the production build and all 27 tests, including all 21 table entries. Chrome at 390 px verified clamping a typed spin of 12 to 10 at speed 4, reducing Spin when Speed is lowered, preserving a legal half step, and validating the resulting file.

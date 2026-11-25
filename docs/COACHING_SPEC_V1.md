@@ -14,6 +14,10 @@ The later Auto design introduced Novice, Amateur, Expert and Pro as player skill
 
 ## SP-C01 · Session setup and choreography
 
+### Approved Auto placement and recovery update
+
+Give every feasible selected drill a meaningful practice block in coaching order before repeating a pattern. Start with simpler, predictable patterns. Place drill entries and recovery starts at the best suitable musical boundary or accent while honoring work and recovery constraints. Use two 8-second recoveries per track when feasible and 3–4 seconds for other recoveries, including the final pause if it is short. Explain which drills or long recoveries could not fit. The calibration examples below remain provisional. Controller no-feed timing and next-ball resumption still require separate verification.
+
 The primary training objective is **Balanced** across technique, footwork and conditioning. Opening accents support progressive build after gentle preparation. Choose drill duration using both meaningful cycle completion and musical placement, and prefer section-based recovery where feasible.
 
 Before generation, expose a choreography profile, intensity, progression pace, recovery preference, selection mode and player difficulty ceiling. Keep the common setup simple. Put per-drill difficulty and preset edits in drill configuration. Preserve existing source and racket-hand setup. Use simple controls. Training intensity offers **Light / Moderate / Challenging**, progression pace offers **Gentle / Balanced / Aggressive**, and recovery preference offers **More / Balanced / Less**. These are separate from player ability, per-drill difficulty and the choreography profile. **Moderate / Balanced / Balanced** are proposed defaults. Numeric mappings and final defaults remain open.
