@@ -9,7 +9,7 @@ export const ballFields = {
 export type BallField = keyof typeof ballFields;
 export type Ball = Record<BallField, number> & { TYPE: "top" | "back" };
 export const flavorFields = ["SPEED", "BPM", "SPIN", "HEIGHT"] as const;
-export const blockKinds = ["CDRILL", "FLAVOR", "IDLE", "STOP"] as const;
+export const blockKinds = ["CDRILL", "FLAVOR", "IDLE", "STOP", "FLAG"] as const;
 export const maxBalls = 10;
 export type BlockKind = typeof blockKinds[number];
 export type Block = {
@@ -34,7 +34,7 @@ export function loadBuiltInBalls(balls: Ball[], start: number, key: string, leve
   return [...balls.slice(0, start), ...loaded, ...balls.slice(start + loaded.length)];
 }
 
-export const blockOrder: Record<BlockKind, number> = { CDRILL: 0, FLAVOR: 1, IDLE: 2, STOP: 3 };
+export const blockOrder: Record<BlockKind, number> = { CDRILL: 0, FLAVOR: 1, IDLE: 2, STOP: 3, FLAG: 4 };
 const clean = (text: string) => text.replace(/[\u0000-\u001f\u007f\u2028\u2029]+/gu, " ").trim();
 const alias = (name: string, prefix: string) => name.trim().toUpperCase().replace(new RegExp("^" + prefix + "_"), "");
 const validAlias = /^[A-Z][A-Z0-9_]{0,35}$/;
@@ -86,7 +86,8 @@ export function compileManualScore(track: Track, blocks: Block[], session = defa
     }
     return key + "=" + Number(value);
   });
-  const sorted = [...blocks].sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
+  const sorted = blocks.filter(block => block.kind !== "FLAG")
+    .sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
   let previous: Block | undefined;
   let pausedUntil = 0;
   let active: Block | undefined;

@@ -74,6 +74,17 @@ const manualBlocks = [
   { id: 5, timeMs: 10000, kind: "STOP", note: "" },
 ];
 
+test("editor FLAG bookmarks are excluded from MSYNC even beside another cue or after STOP", () => {
+  const initial = compileManualScore(track, manualBlocks);
+  const flags = [0, 2000, 12000].map((timeMs, index) => ({
+    ...manualBlocks[0], id: 30 + index, timeMs, kind: "FLAG", name: "Practice here",
+  }));
+  assert.deepEqual(compileManualScore(track, [...manualBlocks, ...flags]), initial);
+  const onlyFlags = compileManualScore(track, flags);
+  assert.doesNotMatch(onlyFlags.source, /FLAG|Practice here/);
+  assert.match(onlyFlags.issues.join(" "), /CDRILL/);
+});
+
 test("MSYNC highlights match the exported cue and the correct definition", () => {
   const { source } = compileManualScore(track, manualBlocks);
   const lines = source.split("\n");

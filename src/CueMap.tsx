@@ -7,10 +7,11 @@ export function CueMap({ entries, durationMs, playhead, onSeek }: {
   entries: CueMapEntry[]; durationMs: number; playhead: number; onSeek: (entry: CueMapEntry) => void;
 }) {
   const percent = (time: number) => 100 * Math.min(durationMs, Math.max(0, time)) / durationMs;
-  return <div className="cue-strip" role="group" aria-label="Scheduled blocks on the audio timeline">
+  return <div className={entries.some(entry => entry.kind === "FLAG") ? "cue-strip has-flags" : "cue-strip"}
+    role="group" aria-label="Scheduled blocks on the audio timeline">
     {entries.map((entry, index) => {
-      const marker = entry.kind === "STOP" || entry.kind === "FLAVOR";
-      const next = entries.slice(index + 1).find(item => item.kind !== "FLAVOR")?.timeMs ?? durationMs;
+      const marker = entry.kind === "STOP" || entry.kind === "FLAVOR" || entry.kind === "FLAG";
+      const next = entries.slice(index + 1).find(item => item.kind !== "FLAVOR" && item.kind !== "FLAG")?.timeMs ?? durationMs;
       const end = Math.max(entry.timeMs, Math.min(next, entry.timeMs + (entry.durationMs ?? Infinity)));
       const label = entry.label + " · " + timestamp(entry.timeMs)
         + (marker ? "" : " to " + timestamp(Math.round(end)));

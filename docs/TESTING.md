@@ -1,5 +1,7 @@
 # SpinPhony testing
 
+- The FLAG follow-up passed the production build and all 25 tests. Chrome at 390 px verified removal of the separate detection map, adding yellow flag bookmarks at a detected marker and between markers, seeking from the cue map, and unchanged MSYNC text and validation.
+
 - The Music Map passed the build and 24 tests. Chrome at 390 px verified sticky map order, optional beats, combined labels, seeking to the matching row, and no automatic block placement. Real-song phrase and repeat accuracy remain unverified.
 
 - The Music setup and CLEAR follow-up passed the build and all 22 tests. Chrome verified generation from Music, removal of duplicate Preview controls, editor-only clearing, preservation of SESSION, and saving a Custom drill from a CDRILL.

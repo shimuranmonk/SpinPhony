@@ -1,6 +1,6 @@
 # SpinPhony continuation
 
-- **Music Map** · A sticky map above the MSYNC Editor cue map shows colored detections and seeks to matching marker rows. Beats are optional. Phrase and returning-section labels are estimates, and intro/outro suggestions use conservative rules. Music guidance does not assign blocks.
+- **Music Map removed for now** · The separate detection map and beat toggle are hidden from MSYNC Editor. The Music markers list still provides detection labels. Yellow FLAG blocks are editor bookmarks on the marker list and cue map. They are excluded from generated MSYNC text and timing.
 
 - **Music setup and CLEAR** · Music houses Auto’s Training Profile and Generate Timeline directly below the audio picker. Ball editing and Save as Custom live in MSYNC Editor. CLEAR removes every placed block while retaining the track and SESSION settings.
 

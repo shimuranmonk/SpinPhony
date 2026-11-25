@@ -4,7 +4,6 @@ import { nativeDrills } from "./nativeDrills.js";
 import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, drillName, flavorFields, initialBall, loadBuiltInBalls, maxBalls, sessionFields } from "./manualScore.js";
 import { validateMsyncSource } from "./msync-v1/validator.js";
 import { CueMap } from "./CueMap.js";
-import { MusicMap } from "./MusicMap.js";
 import { musicGuidance } from "./musicGuidance.js";
 import { MsyncTextPreview } from "./MsyncTextPreview.js";
 import type { Ball, BallField, Block, BlockKind, SessionField, SessionSettings } from "./manualScore.js";
@@ -46,8 +45,17 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
   }, [file]);
   const block = blocks.find(item => item.id === selected);
   const sorted = [...blocks].sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
-  const [showBeats, setShowBeats] = useState(false);
-  const markers = useMemo(() => musicGuidance(track, showBeats), [track, showBeats]);
+  const detected = useMemo(() => musicGuidance(track, false), [track]);
+  const markers = useMemo(() => {
+    const rows = new Map(detected.map(marker => [marker.timeMs, marker]));
+    for (const item of blocks) {
+      if (item.kind === "FLAG" && Number.isInteger(item.timeMs) && item.timeMs >= 0
+        && item.timeMs <= track.durationMs && !rows.has(item.timeMs)) {
+        rows.set(item.timeMs, { timeMs: item.timeMs, labels: [] });
+      }
+    }
+    return [...rows.values()].sort((a, b) => a.timeMs - b.timeMs);
+  }, [detected, blocks, track.durationMs]);
   const currentMarker = markers.reduce((current, marker, index) => marker.timeMs <= playhead ? index : current, -1);
   const latest = sorted.filter(item => item.timeMs <= playhead).at(-1);
   const currentBlock = latest && block?.timeMs === latest.timeMs ? block : latest;
@@ -131,7 +139,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
 
   const stopTime = sorted.find(item => item.kind === "STOP" && Number.isFinite(item.timeMs))?.timeMs ?? track.durationMs;
   const scheduled = sorted.filter(item => Number.isFinite(item.timeMs) && item.timeMs >= 0
-    && item.timeMs <= Math.min(stopTime, track.durationMs));
+    && item.timeMs <= (item.kind === "FLAG" ? track.durationMs : Math.min(stopTime, track.durationMs)));
   const mapEntries = scheduled.map(item => ({
     id: item.id, timeMs: item.timeMs, kind: item.kind, label: blockLabel(item),
     durationMs: item.kind === "CDRILL" && item.once ? item.balls.reduce((total, ball) =>
@@ -143,10 +151,6 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
     <div className="manual-transport">
       <audio ref={audio} src={url} controls aria-label="Track audio"
         onTimeUpdate={event => setPlayhead(Math.round(event.currentTarget.currentTime * 1000))} />
-      <MusicMap markers={markers} durationMs={track.durationMs} playhead={playhead}
-        showBeats={showBeats} onToggleBeats={setShowBeats} onSeek={timeMs => {
-          seek(timeMs); setCueJump(value => value + 1);
-        }} />
       <CueMap entries={mapEntries} durationMs={track.durationMs} playhead={playhead} onSeek={item => {
         seek(item.timeMs); setSelected(item.id); setCueJump(value => value + 1);
       }} />
@@ -193,6 +197,7 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
     </div>
     {block && <fieldset>
       <legend>{block.kind} settings</legend>
+      {block.kind === "FLAG" && <p className="hint">A bookmark for editing. Flags do not appear in the MSYNC file or affect robot playback.</p>}
       <div className="fields">
         <label>Time (seconds)<input type="number" min={0} max={track.durationMs / 1000} step=".001"
           value={Number.isFinite(block.timeMs) ? block.timeMs / 1000 : ""}
