@@ -4,7 +4,7 @@
 
 - **Music setup and CLEAR** · Music houses Auto’s Training Profile and Generate Timeline directly below the audio picker. Ball editing and Save as Custom live in MSYNC Editor. CLEAR removes every placed block while retaining the track and SESSION settings.
 
-- **Auto Preview to MSYNC Editor** · Preview uses a sticky audio player and cue map based on the generated file. Edit in MSYNC Editor copies each activation into an independent placed block and confirms replacement of an existing draft.
+- **Auto Preview and MSYNC Editor** · Generate Timeline opens the taller read-only Preview and populates MSYNC Editor in the same action. Existing drafts require replacement confirmation. Preview keeps the sticky player, cue map, MSYNC highlights, and download.
 
 - **Live MSYNC highlights** · Auto Preview now shows its generated file and follows the current exported cue during audio playback. The manual editor highlights the selected block's exact cue and definition. Highlights are display-only.
 

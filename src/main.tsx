@@ -4,9 +4,8 @@ import type { Drill } from "./catalog.js";
 import { novaPatterns, prepareAutoDrill, readCustomDrills, saveCustomDrill, skillLimits, validateAutoBalls } from "./autoDrills.js";
 import type { Skill } from "./autoDrills.js";
 import { exportTimeline, feedRate, tagline, timestamp } from "./generator.js";
-import type { Profile } from "./generator.js";
+import type { Cue, Profile } from "./generator.js";
 import { readTimeline, suggestTimeline } from "./score.js";
-import { describeMusicEvents } from "./musicEvents.js";
 import { autoCuesToBlocks } from "./autoTransfer.js";
 import { TimelinePreview } from "./TimelinePreview.js";
 import { ManualEditor } from "./ManualEditor.js";
@@ -32,14 +31,14 @@ function App() {
   const [profile, setProfile] = useState<Profile>({
     pace: "steady", handedness: "right", skill: "Novice",
   });
-  const [score, setScore] = useState<string>();
+  const [generated, setGenerated] = useState<{ source: string; cues: Cue[]; feedBpm: number }>();
   const request = useRef(0);
 
   async function load(file: File | undefined) {
     const id = ++request.current;
     setFile(file);
     setTrack(undefined);
-    setScore(undefined);
+    setGenerated(undefined);
     setBlocks([]);
     setError("");
 
@@ -58,7 +57,6 @@ function App() {
   }
 
   function configure<K extends keyof Profile>(key: K, value: Profile[K]) {
-    setScore(undefined);
     setProfile(previous => ({ ...previous, [key]: value }));
   }
 
@@ -72,36 +70,34 @@ function App() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  let timelineError = "";
-  let source = "";
-  let timeline: ReturnType<typeof readTimeline> | undefined;
   const feedBpm = feedRate(profile);
   const skill = profile.skill ?? "Novice";
   const prepared = selected.map(drill => prepareAutoDrill(drill, profile));
   const query = drillQuery.trim().toLowerCase();
   const library = libraryTab === "Nova Drills" ? novaPatterns : custom;
   const visibleDrills = library.filter(drill => (drill.name + " " + drill.description).toLowerCase().includes(query));
-  if (track && score !== undefined) {
+  function generateTimeline() {
+    if (!track) return;
+    setError("");
     try {
       for (const drill of prepared) if (drill.parameters) validateAutoBalls(drill.parameters, skill);
-      timeline = readTimeline(score, track.durationMs, prepared, feedBpm);
-      if (timeline.cues.length > 1) source = exportTimeline(track, timeline.cues, profile, feedBpm);
-      else timelineError = "No complete practice cycle was scheduled. Assign a drill to a suitable hit or section to enable download.";
+      const score = suggestTimeline(track, prepared, feedBpm);
+      const { cues } = readTimeline(score, track.durationMs, prepared, feedBpm);
+      if (cues.length <= 1) throw new Error("No complete practice cycle fits. Try another drill or use MSYNC Editor.");
+      const source = exportTimeline(track, cues, profile, feedBpm);
+      const nextBlocks = autoCuesToBlocks(cues, profile, feedBpm);
+      const hasSessionEdits = session.COUNTDOWN !== defaultSession.COUNTDOWN
+        || session.CYCLE_PAUSE !== defaultSession.CYCLE_PAUSE || session.ROBOT_LEAD !== defaultSession.ROBOT_LEAD;
+      if ((blocks.length || hasSessionEdits) && !window.confirm("Replace the current MSYNC Editor draft with this Auto timeline?")) return;
+      setGenerated({ source, cues, feedBpm });
+      setBlocks(nextBlocks);
+      // Auto omits SESSION. Preserve the frozen format’s implicit values on transfer.
+      setSession({ ...defaultSession, ROBOT_LEAD: "1.3" });
+      setTab("preview");
+      document.getElementById("preview-tab")?.focus();
     } catch (failure) {
-      timelineError = failure instanceof Error ? failure.message : String(failure);
+      setError(failure instanceof Error ? failure.message : String(failure));
     }
-  }
-
-  function transferToEditor() {
-    if (!source || !timeline) return;
-    const hasSessionEdits = session.COUNTDOWN !== defaultSession.COUNTDOWN
-      || session.CYCLE_PAUSE !== defaultSession.CYCLE_PAUSE || session.ROBOT_LEAD !== defaultSession.ROBOT_LEAD;
-    if ((blocks.length || hasSessionEdits) && !window.confirm("Replace the current MSYNC Editor draft with this Auto timeline?")) return;
-    setBlocks(autoCuesToBlocks(timeline.cues, profile, feedBpm));
-    // Auto omits SESSION. Preserve the frozen format’s implicit values on transfer.
-    setSession({ ...defaultSession, ROBOT_LEAD: "1.3" });
-    setTab("manual");
-    document.getElementById("manual-tab")?.focus();
   }
 
   function saveDrill(name: string, balls: Ball[], random: boolean) {
@@ -148,19 +144,7 @@ function App() {
               {track.rhythm ? " · About " + track.rhythm.bpm + " BPM" : ""}</p>}
           </div>
         </section>
-        <form onSubmit={event => {
-          event.preventDefault();
-          if (!track) return;
-          setError("");
-          try {
-            for (const drill of prepared) if (drill.parameters) validateAutoBalls(drill.parameters, skill);
-            setScore(suggestTimeline(track, prepared, feedBpm));
-            setTab("preview");
-            document.getElementById("preview-tab")?.focus();
-          } catch (failure) {
-            setError(failure instanceof Error ? failure.message : String(failure));
-          }
-        }}>
+        <form onSubmit={event => { event.preventDefault(); generateTimeline(); }}>
           <section>
             <h3>Training Profile</h3>
             <div className="fields">
@@ -187,7 +171,6 @@ function App() {
             <div className="drill" key={drill.id}>
               <label>
                 <input type="checkbox" checked={selected.includes(drill)} onChange={event => {
-                  setScore(undefined);
                   const checked = event.target.checked;
                   setSelected(previous => checked ? [...previous, drill] : previous.filter(item => item.id !== drill.id));
                 }} />
@@ -204,12 +187,9 @@ function App() {
         {error && tab === "music" && <p role="alert">{error}</p>}
       </div>
       <div id="preview-panel" role="tabpanel" aria-labelledby="preview-tab" hidden={tab !== "preview"}>
-        {tab === "preview" && (score !== undefined && file && track ? (
-          <TimelinePreview file={file} text={score} source={source} cues={timeline?.cues ?? []}
-            durationMs={track.durationMs} lines={timeline?.lines ?? []}
-            events={describeMusicEvents(track, timeline)} drills={prepared} feedBpm={feedBpm}
-            validationError={timelineError} canDownload={Boolean(source)} onDownload={() => download(source)}
-            onEdit={setScore} onTransfer={transferToEditor} />
+        {tab === "preview" && (generated && file && track ? (
+          <TimelinePreview file={file} source={generated.source} cues={generated.cues}
+            durationMs={track.durationMs} feedBpm={generated.feedBpm} onDownload={() => download(generated.source)} />
         ) : <section><p>Generate a timeline from the Auto panel in Music to preview it here.</p></section>)}
       </div>
       {tab === "manual" && <div id="manual-panel" role="tabpanel" aria-labelledby="manual-tab">
