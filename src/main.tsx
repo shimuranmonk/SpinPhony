@@ -162,7 +162,6 @@ function App() {
           }
         }}>
           <section>
-            <h2>Auto (under development)</h2>
             <h3>Training Profile</h3>
             <div className="fields">
               <label>Player skill<select value={skill} onChange={event => configure("skill", event.target.value as Skill)}>

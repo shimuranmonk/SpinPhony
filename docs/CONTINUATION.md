@@ -1,5 +1,7 @@
 # SpinPhony continuation
 
+- **Music Map** · A sticky map above the MSYNC Editor cue map shows colored detections and seeks to matching marker rows. Beats are optional. Phrase and returning-section labels are estimates, and intro/outro suggestions use conservative rules. Music guidance does not assign blocks.
+
 - **Music setup and CLEAR** · Music houses Auto’s Training Profile and Generate Timeline directly below the audio picker. Ball editing and Save as Custom live in MSYNC Editor. CLEAR removes every placed block while retaining the track and SESSION settings.
 
 - **Auto Preview to MSYNC Editor** · Preview uses a sticky audio player and cue map based on the generated file. Edit in MSYNC Editor copies each activation into an independent placed block and confirms replacement of an existing draft.

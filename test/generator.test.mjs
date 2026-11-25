@@ -8,11 +8,33 @@ import { readTimeline, suggestTimeline } from "../.test-build/score.js";
 import { novaPatterns, prepareAutoDrill, validateAutoBalls } from "../.test-build/autoDrills.js";
 import { indexMsync, msyncHighlight } from "../.test-build/msyncHighlight.js";
 import { autoCuesToBlocks } from "../.test-build/autoTransfer.js";
+import { musicGuidance } from "../.test-build/musicGuidance.js";
 import { compileManualScore, initialBall, loadBuiltInBalls } from "../.test-build/manualScore.js";
 
 const track = { filename: "pulse.wav", durationMs: 24000, sha256: "a".repeat(64), rhythm: { bpm: 120 }, markers: [{ timeMs: 0, kind: "section" }, { timeMs: 250, kind: "hit" }, { timeMs: 1320, kind: "hit" }] };
 const rhythm = { bpm: 120, firstBeatMs: 250 };
 const profile = { pace: "steady", handedness: "right" };
+
+test("music guidance joins beat, accent, and estimated phrase labels and keeps beats optional", () => {
+  const hitMarkers = Array.from({ length: 23 }, (_, i) => ({ kind: "hit", timeMs: 250 + i * 500, strength: .9 }));
+  const audio = { ...track, rhythm: { bpm: 120, firstBeatMs: 250 }, markers: hitMarkers };
+  const hidden = musicGuidance(audio, false);
+  assert.ok(hidden.every(marker => marker.labels.every(label => label.kind !== "beat")));
+  assert.equal(hidden[0].labels[0].text, "Start");
+  assert.equal(hidden.at(-1).labels[0].text, "End");
+  const combined = musicGuidance(audio, true).find(marker => marker.timeMs === 4250);
+  assert.deepEqual(combined.labels.map(label => label.kind), ["accent", "beat", "phrase"]);
+  assert.ok(musicGuidance({ ...audio, rhythm: null }, true).every(marker => marker.labels.every(label => label.kind !== "beat")));
+});
+
+test("contrasting sections between similar passages receive the same estimated repeat label", () => {
+  const section = (timeMs, level, brightness) => ({ timeMs, kind: "section", profile: { level, brightness, hitsPerSecond: 1 } });
+  const markers = musicGuidance({ ...track, markers: [
+    section(0, .1, .1), section(8000, .3, .24), section(16000, .103, .105),
+  ] }, false);
+  assert.ok(markers[0].labels.some(label => label.text === "Section A (estimated repeat)"));
+  assert.ok(markers[2].labels.some(label => label.text === "Section A (estimated repeat)"));
+});
 
 test("copying Auto cues preserves cue times and actual ball values in independent blocks", () => {
   const left = { ...profile, handedness: "left" };

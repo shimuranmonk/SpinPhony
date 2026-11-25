@@ -76,6 +76,25 @@ time { font-variant-numeric: tabular-nums; color: #00867e; }
 .cue-strip .cue-span { min-width: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .72rem; }
 .cue-strip .cue-pin { z-index: 1; width: .55rem; padding: 0; transform: translateX(-50%); }
 .cue-playhead { position: absolute; inset-block: 0; width: 2px; background: #173439; pointer-events: none; z-index: 2; }
+[data-music="boundary"] { --music-color: #404954; }
+[data-music="accent"] { --music-color: #e66d5f; }
+[data-music="beat"] { --music-color: #8b9098; }
+[data-music="phrase"] { --music-color: #8c5bc4; }
+[data-music="section"] { --music-color: #007c74; }
+[data-music="returning"] { --music-color: #2b71bd; }
+.music-map { margin: .25rem .35rem 0; }
+.music-map-heading, .music-map-legend { display: flex; flex-wrap: wrap; align-items: center; gap: .2rem .55rem; font-size: .72rem; }
+.music-map-heading { justify-content: space-between; }
+.music-map-heading label { display: flex; align-items: center; gap: .25rem; }
+.music-map-heading input { width: .85rem; height: .85rem; }
+.music-map-track { position: relative; height: 36px; margin: .12rem 0; background: #e5f4f1; border-radius: .35rem; }
+.music-map-track button { position: absolute; width: 6px; height: 6px; transform: translateX(-50%); padding: 0; border-radius: 2px; background: var(--music-color); }
+.music-map-track button:hover, .music-map-track button:focus-visible { z-index: 3; }
+.music-map-legend span::before, .marker-labels span::before {
+  content: ""; display: inline-block; width: .48rem; height: .48rem; margin-inline-end: .25rem;
+  border-radius: 2px; background: var(--music-color);
+}
+.marker-labels { display: flex; flex-wrap: wrap; gap: .15rem .45rem; font-size: .82rem; }
 [data-block="CDRILL"] { --block-color: #9de3a6; }
 [data-block="FLAVOR"] { --block-color: #91ccf9; }
 [data-block="IDLE"] { --block-color: #ffb060; }

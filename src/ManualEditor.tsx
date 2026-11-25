@@ -1,9 +1,11 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { timestamp } from "./generator.js";
 import { nativeDrills } from "./nativeDrills.js";
 import { ballFields, blockKinds, blockLabel, blockOrder, compileManualScore, drillName, flavorFields, initialBall, loadBuiltInBalls, maxBalls, sessionFields } from "./manualScore.js";
 import { validateMsyncSource } from "./msync-v1/validator.js";
 import { CueMap } from "./CueMap.js";
+import { MusicMap } from "./MusicMap.js";
+import { musicGuidance } from "./musicGuidance.js";
 import { MsyncTextPreview } from "./MsyncTextPreview.js";
 import type { Ball, BallField, Block, BlockKind, SessionField, SessionSettings } from "./manualScore.js";
 import type { Track } from "./rhythm.js";
@@ -44,7 +46,8 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
   }, [file]);
   const block = blocks.find(item => item.id === selected);
   const sorted = [...blocks].sort((a, b) => a.timeMs - b.timeMs || blockOrder[a.kind] - blockOrder[b.kind]);
-  const markers = [...track.markers, { timeMs: track.durationMs, kind: "end" }];
+  const [showBeats, setShowBeats] = useState(false);
+  const markers = useMemo(() => musicGuidance(track, showBeats), [track, showBeats]);
   const currentMarker = markers.reduce((current, marker, index) => marker.timeMs <= playhead ? index : current, -1);
   const latest = sorted.filter(item => item.timeMs <= playhead).at(-1);
   const currentBlock = latest && block?.timeMs === latest.timeMs ? block : latest;
@@ -140,6 +143,10 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
     <div className="manual-transport">
       <audio ref={audio} src={url} controls aria-label="Track audio"
         onTimeUpdate={event => setPlayhead(Math.round(event.currentTarget.currentTime * 1000))} />
+      <MusicMap markers={markers} durationMs={track.durationMs} playhead={playhead}
+        showBeats={showBeats} onToggleBeats={setShowBeats} onSeek={timeMs => {
+          seek(timeMs); setCueJump(value => value + 1);
+        }} />
       <CueMap entries={mapEntries} durationMs={track.durationMs} playhead={playhead} onSeek={item => {
         seek(item.timeMs); setSelected(item.id); setCueJump(value => value + 1);
       }} />
@@ -170,7 +177,8 @@ export function ManualEditor({ file, track, blocks, onChange, onDownload, sessio
               add(type, marker.timeMs);
             }}>
             <button type="button" className="manual-link" onClick={() => seek(marker.timeMs)}>{timestamp(marker.timeMs)}</button>
-            {" "}{marker.kind === "hit" ? "Accent" : marker.kind === "section" ? "Section" : "End"}
+            <span className="marker-labels">{marker.labels.map(label =>
+              <span key={label.text} data-music={label.kind}>{label.text}</span>)}</span>
             <button type="button" className="manual-link" onClick={() => add(kind, marker.timeMs)}
               aria-label={"Add " + kind + " at " + timestamp(marker.timeMs)}>Add</button>
             {sorted.filter(item => item.timeMs === marker.timeMs).map(placedBlock)}
